@@ -40,6 +40,7 @@ export const productsAPI = {
   remove: (id) => api.delete(`/products/${id}`),
   getByBarcode: (code) => api.get(`/products/barcode/${code}`),
   search: (q, field) => api.get('/products/search', { params: { q, field } }),
+  import: (formData) => api.post('/products/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
 };
 
 export const categoriesAPI = {

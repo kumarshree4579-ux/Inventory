@@ -550,3 +550,123 @@ const ImportDialog = ({ open, onClose, onDone }) => {
     </Dialog>
   );
 };
+
+// ── Products List ─────────────────────────────────────────────────────────────
+const Products = () => {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await productsAPI.getAll({ page, limit: pageSize, search });
+      setRows(data.data || []);
+      setTotal(data.total || 0);
+    } catch { toast.error('Failed to load products'); }
+    finally { setLoading(false); }
+  }, [page, pageSize, search]);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const handleDelete = async () => {
+    try {
+      await productsAPI.remove(deleteId);
+      toast.success('Product deleted');
+      setDeleteId(null);
+      fetchProducts();
+    } catch (err) { toast.error(err.response?.data?.message || 'Delete failed'); }
+  };
+
+  const columns = [
+    { field: 'name', headerName: 'Product', flex: 1.5, minWidth: 160 },
+    { field: 'sku', headerName: 'SKU', flex: 0.9, minWidth: 100 },
+    { field: 'barcode', headerName: 'Barcode', flex: 0.9, minWidth: 110 },
+    {
+      field: 'sellingPrice', headerName: 'Price', flex: 0.9, minWidth: 100,
+      renderCell: ({ row }) => (
+        <Box>
+          <Typography variant="body2" fontWeight={600}>₹{row.sellingPrice}</Typography>
+          <Typography variant="caption" color="text.secondary">{row.priceIncludesGst ? 'Inc.GST' : 'Exc.GST'}</Typography>
+        </Box>
+      ),
+    },
+    { field: 'purchasePrice', headerName: 'Cost', flex: 0.7, minWidth: 80, renderCell: ({ value }) => `₹${value}` },
+    { field: 'gst', headerName: 'GST%', flex: 0.5, minWidth: 60 },
+    { field: 'category', headerName: 'Category', flex: 0.9, minWidth: 100, renderCell: ({ value }) => value?.name || '—' },
+    { field: 'brand', headerName: 'Brand', flex: 0.8, minWidth: 90, renderCell: ({ value }) => value?.name || '—' },
+    {
+      field: 'status', headerName: 'Status', flex: 0.6, minWidth: 80,
+      renderCell: ({ value }) => <Chip label={value} size="small" color={value === 'active' ? 'success' : 'default'} />,
+    },
+    {
+      field: 'actions', headerName: '', width: 90, sortable: false,
+      renderCell: ({ row }) => (
+        <>
+          <Tooltip title="Edit">
+            <IconButton size="small" onClick={() => { setEditing(row); setFormOpen(true); }}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton size="small" color="error" onClick={() => setDeleteId(row._id)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <Box>
+      <PageHeader title="Products" action="Add Product" onAction={() => { setEditing(null); setFormOpen(true); }} />
+
+      <Box display="flex" gap={1.5} mb={2} alignItems="center" flexWrap="wrap">
+        <TextField size="small" placeholder="Search by name, SKU, barcode..."
+          value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} sx={{ width: 300 }} />
+        <Box flex={1} />
+        <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>
+          Import Excel
+        </Button>
+      </Box>
+
+      <DataTable rows={rows} columns={columns} loading={loading} total={total}
+        page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+
+      <ProductForm
+        open={formOpen}
+        onClose={() => { setFormOpen(false); setEditing(null); }}
+        onSaved={fetchProducts}
+        initial={editing}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onDone={() => { setImportOpen(false); fetchProducts(); }}
+      />
+
+      {/* Delete confirm */}
+      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Product?</DialogTitle>
+        <DialogContent>
+          <Typography>This will permanently delete the product. Stock records will remain.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteId(null)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDelete}>Delete</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default Products;
