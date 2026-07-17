@@ -33,8 +33,6 @@ productSchema.index({ name: 'text', sku: 'text', barcode: 'text', hsn: 'text' })
 productSchema.index({ status: 1, name: 1 });
 productSchema.index({ category: 1, status: 1 });
 productSchema.index({ brand: 1, status: 1 });
-productSchema.index({ barcode: 1 });
-productSchema.index({ sku: 1 });
 productSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Product', productSchema);
