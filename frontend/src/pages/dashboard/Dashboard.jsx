@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Grid, Card, CardContent, Typography, Box, Chip, Skeleton, Divider } from '@mui/material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -21,6 +22,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,16 +62,16 @@ const Dashboard = () => {
 
       <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard title="Today's Sales" value={`₹${(data.todaySale || 0).toLocaleString()}`} icon={<AttachMoneyIcon />} color="#4f46e5" subtitle={`${data.todayBills || 0} bills`} />
+          <StatCard title="Today's Sales" value={`₹${(data.todaySale || 0).toLocaleString()}`} icon={<AttachMoneyIcon />} color="#4f46e5" subtitle={`${data.todayBills || 0} bills`} onClick={() => navigate('/sales')} sx={{ cursor: 'pointer' }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard title="Today's Purchase" value={`₹${(data.todayPurchase || 0).toLocaleString()}`} icon={<ShoppingCartIcon />} color="#f59e0b" />
+          <StatCard title="Today's Purchase" value={`₹${(data.todayPurchase || 0).toLocaleString()}`} icon={<ShoppingCartIcon />} color="#f59e0b" onClick={() => navigate('/purchase')} sx={{ cursor: 'pointer' }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard title="Today's Customers" value={data.todayCustomers || 0} icon={<PeopleIcon />} color="#10b981" />
+          <StatCard title="Today's Customers" value={data.todayCustomers || 0} icon={<PeopleIcon />} color="#10b981" onClick={() => navigate('/customers')} sx={{ cursor: 'pointer' }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatCard title="Low Stock Items" value={data.lowStock || 0} icon={<WarningAmberIcon />} color="#ef4444" subtitle={`${data.outOfStock || 0} out of stock`} />
+          <StatCard title="Low Stock Items" value={data.lowStock || 0} icon={<WarningAmberIcon />} color="#ef4444" subtitle={`${data.outOfStock || 0} out of stock`} onClick={() => navigate('/stock')} sx={{ cursor: 'pointer' }} />
         </Grid>
       </Grid>
 
@@ -103,7 +105,7 @@ const Dashboard = () => {
               <Typography variant="h6" sx={{ mb: 0.5 }}>Top Products</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Best sellers today</Typography>
               {data.topProducts?.length ? data.topProducts.map((p, i) => (
-                <Box key={p._id}>
+                <Box key={p._id} onClick={() => navigate('/products')} sx={{ cursor: 'pointer' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.25 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                       <Box sx={{ width: 26, height: 26, borderRadius: 1.5, bgcolor: i === 0 ? '#4f46e5' : i === 1 ? '#0ea5e9' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -132,7 +134,11 @@ const Dashboard = () => {
             <Grid container spacing={2}>
               {data.counters.map(c => (
                 <Grid key={c._id} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default' }}>
+                  <Box
+                    key={c._id}
+                    onClick={() => navigate('/counters')}
+                    sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default', cursor: 'pointer', transition: 'box-shadow 0.15s', '&:hover': { boxShadow: 3 } }}
+                  >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
                       <Typography variant="body2" fontWeight={600}>Counter {c.number}</Typography>
                       <Chip label={c.status} size="small" color={c.status === 'open' ? 'success' : 'default'} />

@@ -32,7 +32,7 @@ const CartRow = ({ item, onQty, onRemove, onDiscount }) => {
         <Typography variant="caption" color="text.secondary">{item.product.sku}</Typography>
       </TableCell>
       <TableCell align="center" sx={{ py: 0.75, width: 80 }}>
-        <Box display="flex" alignItems="center" justifyContent="center" gap={0.25}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
           <IconButton size="small" onClick={() => onQty(item.product._id, -1)} sx={{ width: 24, height: 24 }}>
             <RemoveIcon sx={{ fontSize: 12 }} />
           </IconButton>
@@ -48,7 +48,7 @@ const CartRow = ({ item, onQty, onRemove, onDiscount }) => {
       <TableCell align="right" sx={{ py: 0.75, width: 60 }}>
         <TextField size="small" type="number" value={item.lineDiscount || ''}
           onChange={e => onDiscount(item.product._id, +e.target.value || 0)}
-          inputProps={{ min: 0, style: { textAlign: 'right', padding: '2px 4px', fontSize: 11 } }}
+          slotProps={{ htmlInput: { min: 0, style: { textAlign: 'right', padding: '2px 4px', fontSize: 11 } } }}
           sx={{ '& .MuiOutlinedInput-root': { fontSize: 11, height: 24 } }} />
       </TableCell>
       <TableCell align="right" sx={{ py: 0.75, width: 70, pr: 1 }}>
@@ -274,10 +274,15 @@ const POSBilling = () => {
   };
 
   useEffect(() => {
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
     const handler = (e) => {
-      if (e.key === 'F1') { e.preventDefault(); barcodeRef.current?.focus(); }
-      if (e.key === 'F2') { e.preventDefault(); searchRef.current?.focus(); }
-      if (e.key === 'F3') { e.preventDefault(); if (cart.length) setPayDialog(true); }
+      // F-keys (Windows/Linux) or Cmd+1/2/3 (Mac)
+      const macScan   = isMac && e.metaKey && e.key === '1';
+      const macSearch = isMac && e.metaKey && e.key === '2';
+      const macPay    = isMac && e.metaKey && e.key === '3';
+      if (e.key === 'F1' || macScan)   { e.preventDefault(); barcodeRef.current?.focus(); }
+      if (e.key === 'F2' || macSearch) { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'F3' || macPay)    { e.preventDefault(); if (cart.length) setPayDialog(true); }
       if (e.key === 'Escape') setPayDialog(false);
     };
     window.addEventListener('keydown', handler);
@@ -312,12 +317,15 @@ const POSBilling = () => {
           </>
         )}
 
-        <Box flex={1} />
+        <Box sx={{ flex: 1 }} />
 
-        <Box display="flex" gap={0.75}>
-          {[['F1', 'Scan'], ['F2', 'Search'], ['F3', 'Pay']].map(([k, l]) => (
-            <Chip key={k} label={`${k} ${l}`} size="small" variant="outlined" sx={{ fontSize: 10, height: 24 }} />
-          ))}
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          {(() => {
+            const isMac = navigator.platform.toUpperCase().includes('MAC');
+            return [['F1','⌘1','Scan'],['F2','⌘2','Search'],['F3','⌘3','Pay']].map(([fk, mk, l]) => (
+              <Chip key={fk} label={`${isMac ? mk : fk} ${l}`} size="small" variant="outlined" sx={{ fontSize: 10, height: 24 }} />
+            ));
+          })()}
         </Box>
       </Box>
 
@@ -338,9 +346,9 @@ const POSBilling = () => {
                 onKeyDown={handleBarcodeKey}
                 autoFocus
                 sx={{ flex: 1 }}
-                InputProps={{
+                slotProps={{ input: {
                   startAdornment: <InputAdornment position="start"><QrCodeScannerIcon sx={{ fontSize: 18 }} /></InputAdornment>,
-                }}
+                } }}
               />
               {barcodeInput && (
                 <Button
@@ -372,12 +380,18 @@ const POSBilling = () => {
                 </Box>
               )}
               renderInput={(params) => (
-                <TextField {...params} placeholder="Search product (F2)"
+                <TextField
+                  {...params}
+                  placeholder="Search product (F2)"
                   inputRef={searchRef}
-                  InputProps={{
-                    ...params.InputProps,
-                    startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18 }} /></InputAdornment>,
-                    endAdornment: productLoading ? <CircularProgress size={14} /> : null,
+                  slotProps={{
+                    ...params.slotProps,
+                    input: {
+                      ...params.slotProps?.input,
+                      ref: params.InputProps?.ref,
+                      startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18 }} /></InputAdornment>,
+                      endAdornment: productLoading ? <CircularProgress size={14} /> : params.slotProps?.input?.endAdornment,
+                    },
                   }}
                 />
               )}
@@ -385,9 +399,9 @@ const POSBilling = () => {
           </Box>
 
           {/* Cart table */}
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 1.5 }}>
+          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 1.5, minHeight: 0 }}>
             {cart.length === 0 ? (
-              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" flex={1} color="text.disabled">
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, height: '100%', color: 'text.disabled' }}>
                 <ShoppingCartIcon sx={{ fontSize: 48, mb: 1 }} />
                 <Typography variant="body2">Scan or search to add items</Typography>
               </Box>
@@ -439,7 +453,7 @@ const POSBilling = () => {
                 {customer && phoneStatus === 'idle' ? (
                   // Confirmed customer card
                   <Paper variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box display="flex" alignItems="center" gap={1}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Avatar sx={{ width: 26, height: 26, fontSize: 11, bgcolor: 'primary.main' }}>{customer.name[0]}</Avatar>
                       <Box>
                         <Typography variant="body2" fontWeight={600} fontSize={12}>{customer.name}</Typography>
@@ -451,12 +465,11 @@ const POSBilling = () => {
                     </IconButton>
                   </Paper>
                 ) : (
-                  <Box display="flex" gap={0.5} flexDirection="column">
+                  <Box sx={{ display: 'flex', gap: 0.5, flexDirection: 'column' }}>
                     <TextField
                       size="small" placeholder="Phone number" value={phoneInput}
                       onChange={e => handlePhoneChange(e.target.value)}
-                      inputProps={{ maxLength: 15 }}
-                      InputProps={{
+                      slotProps={{ htmlInput: { maxLength: 15 }, input: {
                         endAdornment: phoneStatus === 'searching'
                           ? <InputAdornment position="end"><CircularProgress size={12} /></InputAdornment>
                           : phoneStatus === 'found'
@@ -464,7 +477,7 @@ const POSBilling = () => {
                             : phoneStatus === 'new'
                               ? <InputAdornment position="end"><Chip label="New" size="small" color="warning" sx={{ height: 18, fontSize: 10 }} /></InputAdornment>
                               : null
-                      }}
+                      } }}
                       sx={{ '& input': { fontSize: 12, py: '6px' } }}
                     />
                     {(phoneStatus === 'found' || phoneStatus === 'new') && (
@@ -500,37 +513,36 @@ const POSBilling = () => {
               <Divider />
 
               {/* Bill breakdown */}
-              <Box display="flex" flexDirection="column" gap={0.4}>
-                <Box display="flex" justifyContent="space-between">
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="caption" color="text.secondary">Subtotal</Typography>
                   <Typography variant="caption" fontWeight={600}>₹{subtotal.toFixed(2)}</Typography>
                 </Box>
-                <Box display="flex" justifyContent="space-between">
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="caption" color="text.secondary">Tax (GST)</Typography>
                   <Typography variant="caption" fontWeight={600}>₹{taxAmount.toFixed(2)}</Typography>
                 </Box>
                 {lineDiscounts > 0 && (
-                  <Box display="flex" justifyContent="space-between">
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="caption" color="text.secondary">Item Disc</Typography>
                     <Typography variant="caption" fontWeight={600} color="success.main">-₹{lineDiscounts.toFixed(2)}</Typography>
                   </Box>
                 )}
                 {roundingMethod !== 'none' && (
-                  <Box display="flex" justifyContent="space-between">
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="caption" color="text.secondary">Rounding</Typography>
                     <Typography variant="caption" fontWeight={600} color={total - originalTotal >= 0 ? 'success.main' : 'error.main'}>
                       {total - originalTotal >= 0 ? '+' : ''}₹{(total - originalTotal).toFixed(2)}
                     </Typography>
                   </Box>
                 )}
-                <Box display="flex" justifyContent="space-between" alignItems="center" gap={1}>
-                  <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <LocalOfferIcon sx={{ fontSize: 11 }} /> Bill Disc
                   </Typography>
                   <TextField size="small" type="number" value={discount}
                     onChange={e => setDiscount(e.target.value)}
-                    inputProps={{ min: 0, style: { textAlign: 'right', padding: '2px 4px', fontSize: 11 } }}
-                    InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: 0 }}>₹</InputAdornment> }}
+                    slotProps={{ htmlInput: { min: 0, style: { textAlign: 'right', padding: '2px 4px', fontSize: 11 } }, input: { startAdornment: <InputAdornment position="start" sx={{ mr: 0 }}>₹</InputAdornment> } }}
                     sx={{ width: 80, '& .MuiOutlinedInput-root': { fontSize: 11, height: 26 } }} />
                 </Box>
               </Box>
@@ -561,7 +573,7 @@ const POSBilling = () => {
               {paymentMethod === 'cash' && (
                 <TextField size="small" label="Cash Received" type="number"
                   value={cashReceived} onChange={e => setCashReceived(e.target.value)}
-                  InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                  slotProps={{ input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> } }}
                   helperText={cashReceived ? `Return Cash: ₹${change.toFixed(2)}` : ''}
                   fullWidth />
               )}
@@ -588,33 +600,33 @@ const POSBilling = () => {
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
           <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
-            <Box display="flex" justifyContent="space-between" mb={0.5}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography variant="body2" color="text.secondary">Items</Typography>
               <Typography variant="body2">{totalItems}</Typography>
             </Box>
-            <Box display="flex" justifyContent="space-between" mb={0.5}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography variant="body2" color="text.secondary">Subtotal</Typography>
               <Typography variant="body2">₹{subtotal.toFixed(2)}</Typography>
             </Box>
-            <Box display="flex" justifyContent="space-between" mb={0.5}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography variant="body2" color="text.secondary">Tax</Typography>
               <Typography variant="body2">₹{taxAmount.toFixed(2)}</Typography>
             </Box>
             {(lineDiscounts + billDiscount) > 0 && (
-              <Box display="flex" justifyContent="space-between" mb={0.5}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography variant="body2" color="text.secondary">Discount</Typography>
                 <Typography variant="body2" color="success.main">-₹{(lineDiscounts + billDiscount).toFixed(2)}</Typography>
               </Box>
             )}
             <Divider sx={{ my: 0.75 }} />
-            <Box display="flex" justifyContent="space-between">
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography fontWeight={700}>Total</Typography>
               <Typography fontWeight={800} color="primary.main" fontSize="1.1rem">₹{total.toFixed(2)}</Typography>
             </Box>
           </Paper>
 
           {customer && (
-            <Box display="flex" alignItems="center" gap={1}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: 'secondary.main' }}>
                 {customer.name[0]}
               </Avatar>
@@ -636,13 +648,13 @@ const POSBilling = () => {
           {(paymentMethod === 'cash' || paymentMethod === 'split') && (
             <TextField size="small" label="Cash Received" type="number"
               value={cashReceived} onChange={e => setCashReceived(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> } }}
               autoFocus fullWidth />
           )}
           {paymentMethod === 'split' && (
             <TextField size="small" label="UPI Amount" type="number"
               value={splitUpi} onChange={e => setSplitUpi(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> } }}
               fullWidth />
           )}
           {paymentMethod === 'cash' && cashReceived && (

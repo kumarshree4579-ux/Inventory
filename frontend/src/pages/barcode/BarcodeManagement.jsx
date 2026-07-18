@@ -12,26 +12,21 @@ import { productsAPI } from '../../api/services';
 
 const FORMATS = ['CODE128', 'EAN13', 'EAN8', 'UPC', 'CODE39'];
 
+const LABEL_SIZES = [
+  { key: 'small',  label: 'Small (38×25mm)',  w: 38,  barcodeH: 28, fontSize: 5.5 },
+  { key: 'medium', label: 'Medium (50×30mm)', w: 50,  barcodeH: 35, fontSize: 6.5 },
+  { key: 'large',  label: 'Large (70×40mm)',  w: 70,  barcodeH: 48, fontSize: 7.5 },
+  { key: 'xl',     label: 'XL (100×60mm)',    w: 100, barcodeH: 70, fontSize: 9   },
+];
+
 // Renders a single barcode SVG and returns its outerHTML
-const renderBarcodeSVG = (value, format) => {
+const renderBarcodeSVG = (value, format, barcodeH = 40) => {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  try {
-    JsBarcode(svg, value, {
-      format,
-      width: 2,
-      height: 60,
-      displayValue: true,
-      fontSize: 12,
-      margin: 6,
-      background: '#ffffff',
-      lineColor: '#000000',
-    });
-    return svg.outerHTML;
-  } catch {
-    // fallback to CODE128 if format doesn't match value
-    JsBarcode(svg, value, { format: 'CODE128', width: 2, height: 60, displayValue: true, fontSize: 12, margin: 6 });
-    return svg.outerHTML;
-  }
+  const opts = { format, width: 1.5, height: barcodeH, displayValue: true, fontSize: 10, margin: 3, background: '#ffffff', lineColor: '#000000' };
+  try { JsBarcode(svg, value, opts); }
+  catch { JsBarcode(svg, value, { ...opts, format: 'CODE128' }); }
+  svg.setAttribute('style', 'width:100%;height:auto;display:block;');
+  return svg.outerHTML;
 };
 
 const BarcodePreview = ({ value, format }) => {
@@ -63,6 +58,7 @@ const BarcodeManagement = () => {
   const [notFound, setNotFound] = useState(false);
   const [printQty, setPrintQty] = useState(1);
   const [format, setFormat] = useState('CODE128');
+  const [labelSize, setLabelSize] = useState('medium');
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -84,45 +80,52 @@ const BarcodeManagement = () => {
 
   const handlePrint = () => {
     if (!product || !barcodeValue) return;
-
-    const svgHtml = renderBarcodeSVG(barcodeValue, format);
+    const size = LABEL_SIZES.find(s => s.key === labelSize) || LABEL_SIZES[1];
+    const svgHtml = renderBarcodeSVG(barcodeValue, format, size.barcodeH);
+    const fs = size.fontSize;
 
     const label = `
-      <div style="display:inline-flex;flex-direction:column;align-items:center;border:1px solid #ddd;
-        padding:10px 14px;margin:6px;font-family:Arial,sans-serif;width:200px;box-sizing:border-box;
+      <div style="display:inline-flex;flex-direction:column;align-items:center;
+        border:1px solid #ccc;padding:2mm 3mm;margin:2mm;
+        font-family:Arial,sans-serif;width:${size.w}mm;box-sizing:border-box;
         page-break-inside:avoid;">
-        <div style="font-size:11px;font-weight:700;text-align:center;margin-bottom:4px;
-          max-width:180px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+        <div style="font-size:${fs}pt;font-weight:700;text-align:center;margin-bottom:1mm;
+          width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
           ${product.name}
         </div>
-        ${svgHtml}
-        <div style="font-size:11px;font-weight:600;margin-top:4px;">MRP: ₹${product.mrp || product.sellingPrice}</div>
-        ${product.hsn ? `<div style="font-size:9px;color:#666;">HSN: ${product.hsn}</div>` : ''}
+        <div style="width:100%;">${svgHtml}</div>
+        <div style="font-size:${fs}pt;font-weight:600;margin-top:1mm;">MRP: ₹${product.mrp || product.sellingPrice}</div>
+        ${product.hsn ? `<div style="font-size:${fs - 1}pt;color:#555;">HSN: ${product.hsn}</div>` : ''}
       </div>`;
 
     const labelsHtml = Array(+printQty).fill(label).join('');
 
-    const win = window.open('', '_blank', 'width=800,height=600');
-    win.document.write(`<!DOCTYPE html>
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;height:600px;border:none;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html>
       <html>
         <head>
-          <title>Barcode Labels — ${product.name}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { padding: 16px; background: #fff; }
-            .labels { display: flex; flex-wrap: wrap; gap: 4px; }
+            body { background: #fff; }
+            .labels { display: flex; flex-wrap: wrap; }
             @media print {
-              body { padding: 8px; }
-              @page { margin: 8mm; }
+              @page { margin: 5mm; }
+              body { margin: 0; }
             }
           </style>
         </head>
-        <body>
-          <div class="labels">${labelsHtml}</div>
-          <script>window.onload = () => { window.print(); window.close(); }<\/script>
-        </body>
+        <body><div class="labels">${labelsHtml}</div></body>
       </html>`);
-    win.document.close();
+    doc.close();
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 250);
   };
 
   return (
@@ -208,6 +211,14 @@ const BarcodeManagement = () => {
                         <InputLabel>Barcode Format</InputLabel>
                         <Select value={format} onChange={e => setFormat(e.target.value)} label="Barcode Format">
                           {FORMATS.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid size={6}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Label Size</InputLabel>
+                        <Select value={labelSize} onChange={e => setLabelSize(e.target.value)} label="Label Size">
+                          {LABEL_SIZES.map(s => <MenuItem key={s.key} value={s.key}>{s.label}</MenuItem>)}
                         </Select>
                       </FormControl>
                     </Grid>

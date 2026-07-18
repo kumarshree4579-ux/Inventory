@@ -1,8 +1,11 @@
 import { Card, CardContent, Typography, Box } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
-const StatCard = ({ title, value, icon, color = 'primary.main', subtitle, trend }) => (
-  <Card sx={{ height: '100%' }}>
+const StatCard = ({ title, value, icon, color = 'primary.main', subtitle, trend, onClick }) => (
+  <Card
+    sx={{ height: '100%', ...(onClick && { cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s', '&:hover': { transform: 'translateY(-2px)', boxShadow: 4 } }) }}
+    onClick={onClick}
+  >
     <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box sx={{ flex: 1 }}>
