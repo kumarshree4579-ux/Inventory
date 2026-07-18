@@ -29,19 +29,45 @@ router.get('/search', can('inventory', 'view'), async (req, res, next) => {
     let results;
 
     if (field === 'barcode') {
-      // Exact-prefix match on barcode (indexed)
-      results = await Product.find({ barcode: new RegExp('^' + q, 'i'), status: 'active' })
-        .select('name sku barcode hsn purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
+      // Exact-prefix match on barcode and product type
+      results = await Product.find({
+        status: 'active',
+        $or: [
+          { barcode: new RegExp('^' + q, 'i') },
+          { productType: new RegExp(q, 'i') },
+        ],
+      })
+        .select('name sku barcode hsn productType purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
         .populate('brand', 'name').populate('category', 'name')
         .limit(10).lean();
     } else if (field === 'sku') {
-      results = await Product.find({ sku: new RegExp('^' + q, 'i'), status: 'active' })
-        .select('name sku barcode hsn purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
+      results = await Product.find({
+        status: 'active',
+        $or: [
+          { sku: new RegExp('^' + q, 'i') },
+          { productType: new RegExp(q, 'i') },
+        ],
+      })
+        .select('name sku barcode hsn productType purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
         .populate('brand', 'name').populate('category', 'name')
         .limit(10).lean();
     } else if (field === 'hsn') {
-      results = await Product.find({ hsn: new RegExp('^' + q, 'i'), status: 'active' })
-        .select('name sku barcode hsn purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
+      results = await Product.find({
+        status: 'active',
+        $or: [
+          { hsn: new RegExp('^' + q, 'i') },
+          { productType: new RegExp(q, 'i') },
+        ],
+      })
+        .select('name sku barcode hsn productType purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
+        .populate('brand', 'name').populate('category', 'name')
+        .limit(10).lean();
+    } else if (field === 'productType') {
+      results = await Product.find({
+        status: 'active',
+        productType: new RegExp(q, 'i'),
+      })
+        .select('name sku barcode hsn productType purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
         .populate('brand', 'name').populate('category', 'name')
         .limit(10).lean();
     } else {
@@ -51,13 +77,22 @@ router.get('/search', can('inventory', 'view'), async (req, res, next) => {
           { $text: { $search: q }, status: 'active' },
           { score: { $meta: 'textScore' } }
         )
-          .select('name sku barcode hsn purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
+          .select('name sku barcode hsn productType purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
           .populate('brand', 'name').populate('category', 'name')
           .sort({ score: { $meta: 'textScore' } })
           .limit(10).lean();
       } catch {
-        results = await Product.find({ name: new RegExp(q, 'i'), status: 'active' })
-          .select('name sku barcode hsn purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
+        results = await Product.find({
+          status: 'active',
+          $or: [
+            { name: new RegExp(q, 'i') },
+            { productType: new RegExp(q, 'i') },
+            { sku: new RegExp(q, 'i') },
+            { barcode: new RegExp(q, 'i') },
+            { hsn: new RegExp(q, 'i') },
+          ],
+        })
+          .select('name sku barcode hsn productType purchasePrice sellingPrice mrp gst unit brand category priceIncludesGst')
           .populate('brand', 'name').populate('category', 'name')
           .limit(10).lean();
       }
@@ -100,6 +135,7 @@ router.get('/', can('inventory', 'view'), async (req, res, next) => {
       } catch {
         query.$or = [
           { name: new RegExp(search, 'i') },
+          { productType: new RegExp(search, 'i') },
           { sku: new RegExp(search, 'i') },
           { barcode: new RegExp(search, 'i') },
         ];
@@ -257,6 +293,7 @@ router.post('/import', can('inventory', 'create'), uploadExcel.single('file'), a
           name,
           sku,
           barcode: String(row['Barcode'] || row['barcode'] || '').trim() || undefined,
+          productType: String(row['Product Type'] || row['productType'] || row['product_type'] || '').trim() || undefined,
           hsn: String(row['HSN'] || row['hsn'] || '').trim() || undefined,
           purchasePrice: +(row['Purchase Price'] || row['purchasePrice'] || 0),
           sellingPrice: +(row['Selling Price'] || row['sellingPrice'] || 0),

@@ -34,39 +34,125 @@ const UNIT_OPTIONS = ['pcs', 'kg', 'g', 'l', 'ml', 'box', 'pack', 'dozen', 'pair
 
 // ── Opening stock per branch table ────────────────────────────────────────────
 const OpeningStockTable = ({ branches, value = [], onChange }) => {
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedQty, setSelectedQty] = useState('');
+  const [applyQty, setApplyQty] = useState('');
+
   const update = (branchId, qty) => {
     const next = value.filter(r => r.branch !== branchId);
     if (+qty > 0) next.push({ branch: branchId, qty: +qty });
     onChange(next);
   };
-  const getQty = (id) => value.find(r => r.branch === id)?.qty || '';
+
+  const remove = (branchId) => {
+    onChange(value.filter(r => r.branch !== branchId));
+  };
+
+  const addBranchStock = () => {
+    if (!selectedBranch || !selectedQty) return;
+    update(selectedBranch, selectedQty);
+    setSelectedBranch('');
+    setSelectedQty('');
+  };
+
+  const applyToAll = () => {
+    const qty = +applyQty;
+    if (!branches.length || qty <= 0) return;
+    onChange(branches.map(b => ({ branch: b._id, qty })));
+    setApplyQty('');
+    setSelectedBranch('');
+    setSelectedQty('');
+  };
+
+  const selectedBranchIds = value.map(r => r.branch);
+  const availableBranches = branches.filter(b => !selectedBranchIds.includes(b._id));
+
   if (!branches.length) return (
     <Alert severity="warning" sx={{ mt: 1 }}>No branches found. Add branches first from Settings → Branches.</Alert>
   );
+
   return (
-    <Table size="small">
-      <TableHead>
-        <TableRow>
-          <TableCell>Branch</TableCell>
-          <TableCell width={140}>Opening Qty</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {branches.map(b => (
-          <TableRow key={b._id}>
-            <TableCell>
-              {b.name}
-              <Typography component="span" variant="caption" color="text.secondary"> ({b.code})</Typography>
-            </TableCell>
-            <TableCell>
-              <TextField size="small" type="number" value={getQty(b._id)}
-                onChange={e => update(b._id, e.target.value)}
-                inputProps={{ min: 0 }} sx={{ width: 110 }} />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <Box>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'nowrap' }}>
+        <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
+          <InputLabel>Branch</InputLabel>
+          <Select
+            label="Branch"
+            value={selectedBranch}
+            onChange={e => setSelectedBranch(e.target.value)}
+          >
+            {availableBranches.map(b => (
+              <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>
+            ))}
+            {!availableBranches.length && <MenuItem disabled>No branches left</MenuItem>}
+          </Select>
+        </FormControl>
+        <TextField
+          size="small"
+          label="Qty"
+          type="number"
+          value={selectedQty}
+          onChange={e => setSelectedQty(e.target.value)}
+          inputProps={{ min: 0 }}
+          sx={{ width: 80, flexShrink: 0 }}
+        />
+        <Button size="small" variant="contained" onClick={addBranchStock} disabled={!selectedBranch || !selectedQty || +selectedQty <= 0} sx={{ flexShrink: 0 }}>
+          Add
+        </Button>
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        <TextField
+          size="small"
+          label="Apply qty to all"
+          type="number"
+          value={applyQty}
+          onChange={e => setApplyQty(e.target.value)}
+          inputProps={{ min: 0 }}
+          sx={{ width: 120, flexShrink: 0 }}
+        />
+        <Button size="small" variant="outlined" onClick={applyToAll} disabled={!applyQty || +applyQty <= 0} sx={{ flexShrink: 0 }}>
+          Set All
+        </Button>
+      </Box>
+
+      {value.length === 0 ? (
+        <Alert severity="info" sx={{ mb: 1 }}>No opening stock added yet. Use the dropdown above to add opening stock for branches.</Alert>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Branch</TableCell>
+              <TableCell width={140}>Opening Qty</TableCell>
+              <TableCell width={80} align="center">Remove</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {value.map(row => {
+              const branch = branches.find(b => b._id === row.branch);
+              return (
+                <TableRow key={row.branch}>
+                  <TableCell>
+                    {branch ? branch.name : 'Unknown branch'}
+                    {branch?.code && (
+                      <Typography component="span" variant="caption" color="text.secondary"> ({branch.code})</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <TextField size="small" type="number" value={row.qty}
+                      onChange={e => update(row.branch, e.target.value)}
+                      inputProps={{ min: 0 }} sx={{ width: 110 }} />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Button size="small" color="error" onClick={() => remove(row.branch)}>
+                      Remove
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+    </Box>
   );
 };
 
@@ -85,6 +171,7 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
   const [nameVal, setNameVal] = useState('');
   const [skuVal, setSkuVal] = useState('');
   const [barcodeVal, setBarcodeVal] = useState('');
+  const [productTypeVal, setProductTypeVal] = useState('');
   const [hsnVal, setHsnVal] = useState('');
 
   const priceIncludesGst = useWatch({ control, name: 'priceIncludesGst' });
@@ -115,7 +202,7 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
       setOpeningStocks([]);
     } else {
       reset({ priceIncludesGst: false, unit: 'pcs', gst: 0, status: 'active', minStock: 0, discount: 0 });
-      setNameVal(''); setSkuVal(''); setBarcodeVal(''); setHsnVal('');
+      setNameVal(''); setSkuVal(''); setBarcodeVal(''); setProductTypeVal(''); setHsnVal('');
       setCategoryId(''); setCategoryName('');
       setBrandId(''); setBrandName('');
       setOpeningStocks([]);
@@ -137,6 +224,7 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
     setNameVal(product.name || '');
     setSkuVal(product.sku || '');
     setBarcodeVal(product.barcode || '');
+    setProductTypeVal(product.productType || '');
     setHsnVal(product.hsn || '');
     setCategoryId(product.category?._id || product.category || '');
     setCategoryName(product.category?.name || '');
@@ -158,6 +246,7 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
       data.name = nameVal.trim();
       data.sku = skuVal.trim();
       data.barcode = barcodeVal.trim() || undefined;
+      data.productType = productTypeVal.trim() || undefined;
       data.hsn = hsnVal.trim() || undefined;
       data.category = categoryId || undefined;
       data.brand = brandId || undefined;
@@ -182,37 +271,44 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
   const totalOpeningQty = openingStocks.reduce((s, r) => s + r.qty, 0);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { maxHeight: '94vh' } }}>
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth PaperProps={{ sx: { maxHeight: '96vh' } }}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogTitle sx={{ pb: 1 }}>
           {initial ? 'Edit Product' : 'Add Product'}
           <Typography variant="caption" color="text.secondary" display="block">
-            {!initial && 'Type in Name / SKU / Barcode to search & autofill from existing products'}
+            {!initial && 'Type in Name / SKU / Barcode / Product Type to search & autofill from existing products'}
           </Typography>
         </DialogTitle>
 
-        <DialogContent sx={{ pt: 1 }}>
-          <Grid container spacing={2}>
+        <DialogContent sx={{ pt: 1.5 }}>
+          <Grid container spacing={2.5}>
 
-            {/* ── Identity ── */}
-            <Grid item xs={12} sm={8}>
+            {/* ── Row 1: Name · SKU · Barcode ── */}
+            <Grid item xs={12} sm={7}>
               <ProductAutocompleteField fullWidth size="small" label="Product Name *"
                 field="name" value={nameVal} onChange={setNameVal} onSelect={handleAutofill} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={7} sm={3}>
               <ProductAutocompleteField fullWidth size="small" label="SKU *"
                 field="sku" value={skuVal}
                 onChange={v => setSkuVal(v.toUpperCase())} onSelect={handleAutofill} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={5} sm={2}>
               <ProductAutocompleteField fullWidth size="small" label="Barcode"
                 field="barcode" value={barcodeVal} onChange={setBarcodeVal} onSelect={handleAutofill} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+
+            {/* ── Row 2: Product Type · HSN · Unit · Category · Brand ── */}
+            <Grid item xs={6} sm={3}>
+              <ProductAutocompleteField fullWidth size="small" label="Product Type"
+                field="productType" value={productTypeVal}
+                onChange={setProductTypeVal} onSelect={handleAutofill} />
+            </Grid>
+            <Grid item xs={6} sm={2}>
               <ProductAutocompleteField fullWidth size="small" label="HSN Code"
                 field="hsn" value={hsnVal} onChange={setHsnVal} onSelect={handleAutofill} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={4} sm={1}>
               <FormControl fullWidth size="small">
                 <InputLabel>Unit</InputLabel>
                 <Controller name="unit" control={control} render={({ field }) => (
@@ -222,11 +318,9 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
                 )} />
               </FormControl>
             </Grid>
-
-            {/* ── Category & Brand ── */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={8} sm={3}>
               <CreatableSelect label="Category" value={categoryId} displayValue={categoryName}
-                onChange={id => setCategoryId(id || '')}
+                onChange={(id, name) => { setCategoryId(id || ''); setCategoryName(name || ''); }}
                 fetchOptions={fetchCategories}
                 onCreate={async (name) => {
                   const { data } = await categoriesAPI.create({ name, status: 'active' });
@@ -236,9 +330,9 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={3}>
               <CreatableSelect label="Brand" value={brandId} displayValue={brandName}
-                onChange={id => setBrandId(id || '')}
+                onChange={(id, name) => { setBrandId(id || ''); setBrandName(name || ''); }}
                 fetchOptions={fetchBrands}
                 onCreate={async (name) => {
                   const { data } = await brandsAPI.create({ name, status: 'active' });
@@ -253,8 +347,8 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
             <Grid item xs={12}>
               <Divider><Typography variant="caption" color="text.secondary">Pricing & GST</Typography></Divider>
             </Grid>
-            <Grid item xs={12}>
-              <Box display="flex" alignItems="center" px={1.5} py={1} bgcolor="action.hover" borderRadius={1}>
+            <Grid item xs={12} sm={5}>
+              <Box sx={{ display: 'flex', alignItems: 'center', px: 1.5, py: 1, bgcolor: 'action.hover', borderRadius: 1, height: '100%' }}>
                 <Controller name="priceIncludesGst" control={control} render={({ field }) => (
                   <FormControlLabel
                     control={<Switch checked={!!field.value} onChange={e => field.onChange(e.target.checked)} size="small" />}
@@ -267,7 +361,7 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
                 )} />
               </Box>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid item xs={4} sm={1}>
               <FormControl fullWidth size="small">
                 <InputLabel>GST %</InputLabel>
                 <Controller name="gst" control={control} render={({ field }) => (
@@ -277,22 +371,22 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
                 )} />
               </FormControl>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid item xs={8} sm={2}>
               <TextField fullWidth size="small" label="Purchase Price *" type="number"
                 {...register('purchasePrice', { required: true })}
                 InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                 error={!!errors.purchasePrice} />
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid item xs={6} sm={2}>
               <TextField fullWidth size="small"
-                label={`Selling Price * (${priceIncludesGst ? 'Inc.GST' : 'Exc.GST'})`}
+                label={`Selling Price * (${priceIncludesGst ? 'Inc' : 'Exc'}.GST)`}
                 type="number"
                 {...register('sellingPrice', { required: true })}
                 InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                 helperText={gst > 0 ? (priceIncludesGst ? `Exc: ₹${excGst}` : `Inc: ₹${incGst}`) : ''}
                 error={!!errors.sellingPrice} />
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid item xs={6} sm={2}>
               <TextField fullWidth size="small" label="MRP" type="number"
                 {...register('mrp')}
                 InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} />
@@ -305,22 +399,23 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
               </Grid>
             )}
 
-            {/* ── Other fields ── */}
+            {/* ── Other Details ── */}
             <Grid item xs={12}>
               <Divider><Typography variant="caption" color="text.secondary">Other Details</Typography></Divider>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            {/* Min Stock · Discount · Batch · Status */}
+            <Grid item xs={6} sm={2}>
               <TextField fullWidth size="small" label="Min Stock" type="number"
                 {...register('minStock')} inputProps={{ min: 0 }} />
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid item xs={6} sm={2}>
               <TextField fullWidth size="small" label="Discount %" type="number"
                 {...register('discount')} inputProps={{ min: 0, max: 100 }} />
             </Grid>
             <Grid item xs={6} sm={3}>
               <TextField fullWidth size="small" label="Batch No." {...register('batchNumber')} />
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid item xs={6} sm={2}>
               <FormControl fullWidth size="small">
                 <InputLabel>Status</InputLabel>
                 <Controller name="status" control={control} render={({ field }) => (
@@ -331,15 +426,20 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
                 )} />
               </FormControl>
             </Grid>
-            <Grid item xs={6} sm={4}>
+            {/* Dates · Description on same row */}
+            <Grid item xs={6} sm={3}>
               <TextField fullWidth size="small" label="Mfg. Date" type="date"
-                {...register('manufacturingDate')} InputLabelProps={{ shrink: true }} />
+                {...register('manufacturingDate')}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ style: { cursor: 'pointer' } }} />
             </Grid>
-            <Grid item xs={6} sm={4}>
+            <Grid item xs={6} sm={3}>
               <TextField fullWidth size="small" label="Expiry Date" type="date"
-                {...register('expiryDate')} InputLabelProps={{ shrink: true }} />
+                {...register('expiryDate')}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ style: { cursor: 'pointer' } }} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField fullWidth size="small" label="Description" {...register('description')} />
             </Grid>
 
@@ -375,7 +475,7 @@ const ProductForm = ({ open, onClose, onSaved, initial }) => {
 
 // ── Excel Import Dialog ───────────────────────────────────────────────────────
 const TEMPLATE_COLS = [
-  'Name', 'SKU', 'Barcode', 'HSN', 'Category', 'Brand',
+  'Name', 'SKU', 'Barcode', 'Product Type', 'HSN', 'Category', 'Brand',
   'Purchase Price', 'Selling Price', 'MRP', 'GST%', 'Unit',
   'Min Stock', 'Opening Stock', 'Discount%', 'Price Includes GST',
   'Batch Number', 'Description', 'Branch',
@@ -384,7 +484,7 @@ const TEMPLATE_COLS = [
 const downloadTemplate = () => {
   const ws = XLSX.utils.aoa_to_sheet([
     TEMPLATE_COLS,
-    ['Sample Product', 'SKU001', '8901234567890', '1234', 'Electronics', 'Samsung',
+    ['Sample Product', 'SKU001', '8901234567890', 'Electronics', '1234', 'Electronics', 'Samsung',
       500, 799, 999, 18, 'pcs', 5, 10, 0, 'No', '', 'Sample description', 'Main Branch'],
   ]);
   ws['!cols'] = TEMPLATE_COLS.map(() => ({ wch: 18 }));
@@ -600,6 +700,7 @@ const Products = () => {
     },
     { field: 'purchasePrice', headerName: 'Cost', flex: 0.7, minWidth: 80, renderCell: ({ value }) => `₹${value}` },
     { field: 'gst', headerName: 'GST%', flex: 0.5, minWidth: 60 },
+    { field: 'productType', headerName: 'Product Type', flex: 0.9, minWidth: 120, renderCell: ({ value }) => value || '—' },
     { field: 'category', headerName: 'Category', flex: 0.9, minWidth: 100, renderCell: ({ value }) => value?.name || '—' },
     { field: 'brand', headerName: 'Brand', flex: 0.8, minWidth: 90, renderCell: ({ value }) => value?.name || '—' },
     {
@@ -629,8 +730,8 @@ const Products = () => {
     <Box>
       <PageHeader title="Products" action="Add Product" onAction={() => { setEditing(null); setFormOpen(true); }} />
 
-      <Box display="flex" gap={1.5} mb={2} alignItems="center" flexWrap="wrap">
-        <TextField size="small" placeholder="Search by name, SKU, barcode..."
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextField size="small" placeholder="Search by name, SKU, barcode, product type..."
           value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} sx={{ width: 300 }} />
         <Box flex={1} />
         <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>

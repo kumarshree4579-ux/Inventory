@@ -70,7 +70,8 @@ const ProductAutocompleteField = ({ label, field = 'name', value, onChange, onSe
                       </Box>
                     }
                     secondary={
-                      <Box display="flex" gap={1.5} mt={0.3}>
+                      <Box display="flex" gap={1.5} mt={0.3} flexWrap="wrap">
+                        {p.productType && <Typography variant="caption" color="text.secondary">{p.productType}</Typography>}
                         <Typography variant="caption">₹{p.sellingPrice}</Typography>
                         {p.gst > 0 && <Typography variant="caption" color="text.secondary">GST {p.gst}%</Typography>}
                         {p.category?.name && <Typography variant="caption" color="text.secondary">{p.category.name}</Typography>}

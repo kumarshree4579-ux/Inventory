@@ -16,7 +16,7 @@ const columns = [
   )},
   { field: 'module', headerName: 'Module', flex: 0.8 },
   { field: 'description', headerName: 'Description', flex: 2 },
-  { field: 'ipAddress', headerName: 'IP Address', flex: 0.9 },
+  { field: 'ip', headerName: 'IP Address', flex: 0.9 },
   { field: 'device', headerName: 'Device', flex: 1, renderCell: ({ value }) => (
     <Typography variant="caption" noWrap title={value}>{value || '—'}</Typography>
   )},

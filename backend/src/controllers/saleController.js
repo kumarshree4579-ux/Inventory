@@ -4,7 +4,7 @@ const { generateBillNumber } = require('../utils/helpers');
 
 exports.createSale = async (req, res, next) => {
   try {
-    const { items, customer, paymentMethod, paymentDetails, discountAmount, coupon, branch: bodyBranch, counter: bodyCounter } = req.body;
+    const { items, customer, paymentMethod, paymentDetails, discountAmount, coupon, branch: bodyBranch, counter: bodyCounter, roundingMethod, originalTotal } = req.body;
 
     if (!items?.length) return res.status(400).json({ message: 'Cart is empty' });
     if (!paymentMethod) return res.status(400).json({ message: 'Payment method required' });
@@ -22,9 +22,14 @@ exports.createSale = async (req, res, next) => {
 
     const subtotal = items.reduce((sum, i) => sum + i.total, 0);
     const taxAmount = items.reduce((sum, i) => sum + (i.total * ((i.gst || 0) / 100)), 0);
-    const total = subtotal + taxAmount - (discountAmount || 0);
+    let total = subtotal + taxAmount - (discountAmount || 0);
+    
+    // Apply rounding
+    if (roundingMethod === 'round') total = Math.round(total);
+    else if (roundingMethod === 'floor') total = Math.floor(total);
+    else if (roundingMethod === 'ceil') total = Math.ceil(total);
 
-    const sale = await Sale.create({
+    const created = await Sale.create({
       billNumber: generateBillNumber('INV'),
       customer: customer || undefined,
       branch,
@@ -38,6 +43,8 @@ exports.createSale = async (req, res, next) => {
       coupon,
       paymentMethod,
       paymentDetails,
+      roundingMethod: roundingMethod || 'none',
+      originalTotal: originalTotal || total,
     });
 
     await Promise.all(items.map(item => Promise.all([
@@ -51,10 +58,17 @@ exports.createSale = async (req, res, next) => {
         type: 'outward',
         quantity: item.quantity,
         reference: 'sale',
-        referenceId: sale._id,
+        referenceId: created._id,
         performedBy: req.user._id,
       }),
     ])));
+
+    // Populate product references so frontend can render names in receipt
+    const sale = await Sale.findById(created._id)
+      .populate('customer', 'name phone')
+      .populate('cashier', 'name')
+      .populate('items.product', 'name sku')
+      .lean();
 
     const io = req.app.get('io');
     io?.to(`branch_${branch}`).emit('new_sale', { saleId: sale._id, total: sale.total });

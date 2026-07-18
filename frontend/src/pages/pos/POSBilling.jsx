@@ -1,47 +1,120 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Box, Grid, TextField, Button, Typography, Card, CardContent,
-  List, ListItem, ListItemText, IconButton, Divider, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  ToggleButtonGroup, ToggleButton, FormControl, InputLabel,
-  Select, MenuItem, Autocomplete, CircularProgress, Alert,
+  Box, TextField, Button, Typography, Card, IconButton, Divider, Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel,
+  Select, MenuItem, Autocomplete, CircularProgress, Alert, Table, TableHead,
+  TableRow, TableCell, TableBody, TableContainer, Avatar, Tooltip,
+  ToggleButtonGroup, ToggleButton, InputAdornment, Paper, Grid,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import SearchIcon from '@mui/icons-material/Search';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import ClearAllIcon from '@mui/icons-material/ClearAll';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import CloseIcon from '@mui/icons-material/Close';
 import { productsAPI, salesAPI, customersAPI, branchesAPI, countersAPI } from '../../api/services';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 
+const printReceipt = (sale, storeName = 'Inventory Pro') => {
+  const w = window.open('', '_blank', 'width=400,height=600');
+  if (!w) return;
+  const rows = sale.items.map(it => `<tr><td>${it.product?.name || '—'}</td><td style="text-align:center">${it.quantity}</td><td style="text-align:right">₹${(+it.price).toFixed(2)}</td><td style="text-align:right">₹${(+it.total).toFixed(2)}</td></tr>`).join('');
+  let roundingText = '';
+  if (sale.roundingMethod && sale.roundingMethod !== 'none') {
+    roundingText = `<tr><td>Rounding (${sale.roundingMethod})</td><td style="text-align:right">₹${(+sale.originalTotal - +sale.total).toFixed(2)}</td></tr>`;
+  }
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;padding:16px;width:300px}h2{text-align:center;font-size:16px;margin-bottom:4px}.center{text-align:center}.divider{border-top:1px dashed #000;margin:8px 0}table{width:100%;border-collapse:collapse}th{font-size:11px;border-bottom:1px solid #000;padding:3px 0}td{padding:3px 0;vertical-align:top}.total-row td{font-weight:bold;border-top:1px solid #000;padding-top:4px}.footer{text-align:center;margin-top:12px;font-size:11px;color:#555}</style></head><body><h2>${storeName}</h2><div class="center" style="font-size:11px;color:#555">Tax Invoice</div><div class="divider"></div><div>Bill#: <b>${sale.billNumber}</b></div><div>Date: ${new Date(sale.createdAt).toLocaleString('en-IN')}</div>${sale.customer ? `<div>Customer: ${sale.customer.name}</div>` : ''}${sale.cashier ? `<div>Cashier: ${sale.cashier.name}</div>` : ''}<div class="divider"></div><table><thead><tr><th style="text-align:left">Item</th><th>Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amt</th></tr></thead><tbody>${rows}</tbody></table><div class="divider"></div><table><tr><td>Subtotal</td><td style="text-align:right">₹${(+sale.subtotal).toFixed(2)}</td></tr><tr><td>Tax</td><td style="text-align:right">₹${(+sale.taxAmount).toFixed(2)}</td></tr>${sale.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-₹${(+sale.discountAmount).toFixed(2)}</td></tr>` : ''}${roundingText}<tr class="total-row"><td>TOTAL</td><td style="text-align:right">₹${(+sale.total).toFixed(2)}</td></tr><tr><td>Payment</td><td style="text-align:right">${sale.paymentMethod?.toUpperCase()}</td></tr></table><div class="footer">Thank you for shopping!</div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000);}</script></body></html>`);
+  w.document.close();
+};
+
+const CartRow = ({ item, onQty, onRemove, onDiscount }) => {
+  const lineTotal = (item.price * item.quantity) - (item.lineDiscount || 0);
+  return (
+    <TableRow hover sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+      <TableCell sx={{ py: 0.75, pl: 1 }}>
+        <Typography variant="body2" fontWeight={600}>{item.product.name}</Typography>
+        <Typography variant="caption" color="text.secondary">{item.product.sku}</Typography>
+      </TableCell>
+      <TableCell align="center" sx={{ py: 0.75, width: 80 }}>
+        <Box display="flex" alignItems="center" justifyContent="center" gap={0.25}>
+          <IconButton size="small" onClick={() => onQty(item.product._id, -1)} sx={{ width: 24, height: 24 }}>
+            <RemoveIcon sx={{ fontSize: 12 }} />
+          </IconButton>
+          <Typography sx={{ minWidth: 24, textAlign: 'center', fontWeight: 700, fontSize: 13 }}>{item.quantity}</Typography>
+          <IconButton size="small" onClick={() => onQty(item.product._id, 1)} sx={{ width: 24, height: 24 }}>
+            <AddIcon sx={{ fontSize: 12 }} />
+          </IconButton>
+        </Box>
+      </TableCell>
+      <TableCell align="right" sx={{ py: 0.75, width: 70 }}>
+        <Typography variant="caption" fontWeight={600}>₹{item.price.toFixed(2)}</Typography>
+      </TableCell>
+      <TableCell align="right" sx={{ py: 0.75, width: 60 }}>
+        <TextField size="small" type="number" value={item.lineDiscount || ''}
+          onChange={e => onDiscount(item.product._id, +e.target.value || 0)}
+          inputProps={{ min: 0, style: { textAlign: 'right', padding: '2px 4px', fontSize: 11 } }}
+          sx={{ '& .MuiOutlinedInput-root': { fontSize: 11, height: 24 } }} />
+      </TableCell>
+      <TableCell align="right" sx={{ py: 0.75, width: 70, pr: 1 }}>
+        <Typography variant="body2" fontWeight={700} color="primary.main">₹{lineTotal.toFixed(2)}</Typography>
+      </TableCell>
+      <TableCell align="center" sx={{ py: 0.75, width: 40 }}>
+        <IconButton size="small" color="error" onClick={() => onRemove(item.product._id)} sx={{ width: 24, height: 24 }}>
+          <DeleteIcon sx={{ fontSize: 12 }} />
+        </IconButton>
+      </TableCell>
+    </TableRow>
+  );
+};
+
 const POSBilling = () => {
   const { user } = useAuthStore();
-  const [cart, setCart] = useState([]);
-  const [barcodeInput, setBarcodeInput] = useState('');
-  const [customer, setCustomer] = useState(null);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [customerOptions, setCustomerOptions] = useState([]);
-  const [discount, setDiscount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [payDialog, setPayDialog] = useState(false);
+  const isAdmin = !user?.branch;
+
   const [branches, setBranches] = useState([]);
   const [counters, setCounters] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState(user?.branch?._id || user?.branch || '');
-  const [selectedCounter, setSelectedCounter] = useState(user?.counter?._id || user?.counter || '');
+  const [selectedCounter, setSelectedCounter] = useState('');
+
+  const [cart, setCart] = useState([]);
+  const [discount, setDiscount] = useState('');
+
+  const [barcodeInput, setBarcodeInput] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [productOptions, setProductOptions] = useState([]);
   const [productLoading, setProductLoading] = useState(false);
-  const searchTimer = useRef(null);
-  const barcodeRef = useRef(null);
 
-  const isAdmin = !user?.branch;
+  const [customer, setCustomer] = useState(null);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
+  const [phoneStatus, setPhoneStatus] = useState('idle'); // idle | searching | found | new
+  const phoneLookupTimer = useRef(null);
+  const [roundingMethod, setRoundingMethod] = useState('round'); // none, round, floor, ceil
+
+  const [payDialog, setPayDialog] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [cashReceived, setCashReceived] = useState('');
+  const [splitUpi, setSplitUpi] = useState('');
+  const [processing, setProcessing] = useState(false);
+
+  const barcodeRef = useRef(null);
+  const searchRef = useRef(null);
+  const searchTimer = useRef(null);
 
   useEffect(() => {
-    if (isAdmin) {
-      branchesAPI.getAll({ limit: 100, status: 'active' }).then(({ data }) => {
-        setBranches(data.data || []);
-        if (data.data?.length && !selectedBranch) setSelectedBranch(data.data[0]._id);
-      }).catch(() => {});
-    }
+    if (!isAdmin) return;
+    branchesAPI.getAll({ limit: 100, status: 'active' }).then(({ data }) => {
+      const list = data.data || [];
+      setBranches(list);
+      if (list.length && !selectedBranch) setSelectedBranch(list[0]._id);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -51,295 +124,552 @@ const POSBilling = () => {
     }).catch(() => {});
   }, [selectedBranch]);
 
-  // Product search with debounce
   useEffect(() => {
-    if (!productSearch || productSearch.length < 1) { setProductOptions([]); return; }
+    if (!productSearch) { setProductOptions([]); return; }
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(async () => {
       setProductLoading(true);
       try {
         const { data } = await productsAPI.search(productSearch, 'name');
-        setProductOptions(data);
+        setProductOptions(data || []);
       } catch { setProductOptions([]); }
       finally { setProductLoading(false); }
-    }, 300);
+    }, 250);
   }, [productSearch]);
 
-  // Customer search
-  useEffect(() => {
-    if (!customerSearch || customerSearch.length < 2) return;
-    customersAPI.getAll({ search: customerSearch, limit: 10 })
-      .then(({ data }) => setCustomerOptions(data.data || []))
-      .catch(() => {});
-  }, [customerSearch]);
 
-  const addToCart = (product) => {
+  const addToCart = useCallback((product) => {
     if (!product) return;
+    const gst = product.gst || 0;
+    const unitPrice = product.priceIncludesGst
+      ? +(product.sellingPrice / (1 + gst / 100)).toFixed(2)
+      : product.sellingPrice;
     setCart(prev => {
       const existing = prev.find(i => i.product._id === product._id);
-      if (existing) {
-        return prev.map(i => i.product._id === product._id
-          ? { ...i, quantity: i.quantity + 1, total: (i.quantity + 1) * i.price }
-          : i
-        );
-      }
-      return [...prev, {
-        product,
-        quantity: 1,
-        price: product.sellingPrice,
-        gst: product.gst || 0,
-        discount: 0,
-        total: product.sellingPrice,
-      }];
+      if (existing) return prev.map(i => i.product._id === product._id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { product, quantity: 1, price: unitPrice, gst, lineDiscount: 0 }];
     });
     setProductSearch('');
     setProductOptions([]);
-    barcodeRef.current?.focus();
-  };
+    setTimeout(() => barcodeRef.current?.focus(), 50);
+  }, []);
 
-  const handleBarcodeEnter = async (e) => {
-    if (e.key !== 'Enter' || !barcodeInput.trim()) return;
+  const handleBarcodeKey = async (e) => {
+    if (e.key !== 'Enter') return;
+    if (!barcodeInput.trim()) return;
+    
     try {
       const { data } = await productsAPI.getByBarcode(barcodeInput.trim());
-      addToCart(data);
-      setBarcodeInput('');
-    } catch {
-      toast.error('Product not found for barcode: ' + barcodeInput);
+      if (data && data._id) {
+        addToCart(data);
+        setBarcodeInput('');
+      } else {
+        toast.error('No product found for this barcode');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Barcode not found');
     }
   };
 
-  const updateQty = (id, delta) => {
-    setCart(prev => prev
-      .map(i => i.product._id === id
-        ? { ...i, quantity: Math.max(1, i.quantity + delta), total: Math.max(1, i.quantity + delta) * i.price }
-        : i
-      )
-    );
+  const handleAddBarcode = async () => {
+    if (!barcodeInput.trim()) return;
+    
+    try {
+      const { data } = await productsAPI.getByBarcode(barcodeInput.trim());
+      if (data && data._id) {
+        addToCart(data);
+        setBarcodeInput('');
+      } else {
+        toast.error('No product found for this barcode');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Barcode not found');
+    }
   };
 
+  const updateQty = (id, delta) =>
+    setCart(prev => prev.map(i => i.product._id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
   const removeItem = (id) => setCart(prev => prev.filter(i => i.product._id !== id));
+  const setLineDiscount = (id, val) =>
+    setCart(prev => prev.map(i => i.product._id === id ? { ...i, lineDiscount: val } : i));
+  const clearCart = () => { setCart([]); setDiscount(''); setCustomer(null); setPhoneInput(''); setNameInput(''); setPhoneStatus('idle'); };
 
-  const subtotal = cart.reduce((s, i) => s + i.total, 0);
-  const taxAmount = cart.reduce((s, i) => s + (i.total * ((i.gst || 0) / 100)), 0);
-  const total = Math.max(0, subtotal + taxAmount - (+discount || 0));
+  const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const taxAmount = cart.reduce((s, i) => s + (i.price * i.quantity * (i.gst / 100)), 0);
+  const lineDiscounts = cart.reduce((s, i) => s + (i.lineDiscount || 0), 0);
+  const billDiscount = +discount || 0;
+  let total = Math.max(0, subtotal + taxAmount - lineDiscounts - billDiscount);
+  
+  // Apply rounding
+  const originalTotal = total;
+  if (roundingMethod === 'round') total = Math.round(total);
+  else if (roundingMethod === 'floor') total = Math.floor(total);
+  else if (roundingMethod === 'ceil') total = Math.ceil(total);
+  
+  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+  const change = Math.max(0, (+cashReceived || 0) - total);
 
   const handleCheckout = async () => {
     if (!cart.length) return toast.error('Cart is empty');
-    if (!selectedBranch) return toast.error('Select a branch');
+    if (!selectedBranch) return toast.error('Select a branch first');
+    setProcessing(true);
     try {
-      await salesAPI.create({
+      // Auto-save customer if phone+name filled
+      let resolvedCustomer = customer;
+      if (phoneInput.trim() && nameInput.trim()) {
+        try {
+          if (phoneStatus === 'found' && customer) {
+            if (nameInput.trim() !== customer.name) {
+              const { data } = await customersAPI.update(customer._id, { name: nameInput.trim() });
+              resolvedCustomer = data;
+            }
+          } else if (phoneStatus === 'new') {
+            const { data } = await customersAPI.create({ phone: phoneInput.trim(), name: nameInput.trim() });
+            resolvedCustomer = data;
+          }
+        } catch { /* non-fatal */ }
+      }
+      const { data: sale } = await salesAPI.create({
         items: cart.map(i => ({
           product: i.product._id,
           quantity: i.quantity,
           price: i.price,
           gst: i.gst,
-          discount: i.discount,
-          total: i.total,
+          discount: i.lineDiscount || 0,
+          total: +(i.price * i.quantity - (i.lineDiscount || 0)).toFixed(2),
         })),
-        customer: customer?._id,
+        customer: resolvedCustomer?._id,
         paymentMethod,
-        discountAmount: +discount || 0,
+        paymentDetails: paymentMethod === 'split' ? { cash: +cashReceived || 0, upi: +splitUpi || 0 } : undefined,
+        discountAmount: billDiscount,
         branch: selectedBranch,
         counter: selectedCounter || undefined,
+        roundingMethod,
+        originalTotal,
       });
-      toast.success('Sale completed!');
-      setCart([]);
-      setDiscount(0);
-      setCustomer(null);
+      toast.success(`Sale ₹${sale.total.toFixed(2)} — Bill# ${sale.billNumber}`);
+      printReceipt(sale);
+      clearCart();
       setPayDialog(false);
+      setCashReceived('');
+      setSplitUpi('');
       barcodeRef.current?.focus();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Sale failed');
-    }
+    } finally { setProcessing(false); }
   };
 
+  // Phone lookup debounce
+  const handlePhoneChange = (val) => {
+    setPhoneInput(val);
+    setNameInput('');
+    setPhoneStatus('idle');
+    setCustomer(null);
+    clearTimeout(phoneLookupTimer.current);
+    if (val.trim().length < 10) return;
+    setPhoneStatus('searching');
+    phoneLookupTimer.current = setTimeout(async () => {
+      try {
+        const { data } = await customersAPI.byPhone(val.trim());
+        setNameInput(data.name);
+        setPhoneStatus('found');
+        setCustomer(data); // store ref but don't hide the form
+      } catch {
+        setPhoneStatus('new');
+      }
+    }, 400);
+  };
+
+  const handleCustomerSave = async () => {
+    // kept for potential future use — auto-called during checkout
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'F1') { e.preventDefault(); barcodeRef.current?.focus(); }
+      if (e.key === 'F2') { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'F3') { e.preventDefault(); if (cart.length) setPayDialog(true); }
+      if (e.key === 'Escape') setPayDialog(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [cart]);
+
   return (
-    <Box>
-      <Typography variant="h5" fontWeight={700} mb={2}>POS Billing</Typography>
+    <Box sx={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f5f5f5' }}>
 
-      {/* Branch/Counter selector for admin */}
-      {isAdmin && (
-        <Box display="flex" gap={2} mb={2}>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Branch</InputLabel>
-            <Select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} label="Branch">
-              {branches.map(b => <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Counter</InputLabel>
-            <Select value={selectedCounter} onChange={e => setSelectedCounter(e.target.value)} label="Counter">
-              <MenuItem value=""><em>No counter</em></MenuItem>
-              {counters.map(c => <MenuItem key={c._id} value={c._id}>Counter {c.number} - {c.name}</MenuItem>)}
-            </Select>
-          </FormControl>
+      {/* ── Header bar ── */}
+      <Box sx={{ px: 3, py: 1.5, bgcolor: 'white', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+        <Typography variant="h6" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ReceiptIcon color="primary" sx={{ fontSize: 24 }} />
+          POS Billing
+        </Typography>
+
+        {isAdmin && (
+          <>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Branch</InputLabel>
+              <Select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} label="Branch">
+                {branches.map(b => <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Counter</InputLabel>
+              <Select value={selectedCounter} onChange={e => setSelectedCounter(e.target.value)} label="Counter">
+                <MenuItem value=""><em>No counter</em></MenuItem>
+                {counters.map(c => <MenuItem key={c._id} value={c._id}>{c.name || `Counter ${c.number}`}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </>
+        )}
+
+        <Box flex={1} />
+
+        <Box display="flex" gap={0.75}>
+          {[['F1', 'Scan'], ['F2', 'Search'], ['F3', 'Pay']].map(([k, l]) => (
+            <Chip key={k} label={`${k} ${l}`} size="small" variant="outlined" sx={{ fontSize: 10, height: 24 }} />
+          ))}
         </Box>
-      )}
+      </Box>
 
-      <Grid container spacing={2} sx={{ height: 'calc(100vh - 200px)' }}>
-        {/* Left: Search + Cart */}
-        <Grid item xs={12} md={7}>
-          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ pb: 1 }}>
-              <Box display="flex" gap={1} mb={1}>
-                <TextField
-                  inputRef={barcodeRef}
-                  size="small" placeholder="Scan barcode → Enter"
-                  value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)}
-                  onKeyDown={handleBarcodeEnter}
-                  sx={{ flex: 1 }} autoFocus
-                />
-              </Box>
-              {/* Product name search */}
-              <Autocomplete
+      {/* ── Main split layout (Shopify/Square style: 70/30) ── */}
+      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 1.5, p: 1.5 }}>
+
+        {/* ── LEFT: Cart (70%) ── */}
+        <Box sx={{ flex: '1.75', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Search inputs */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', flex: 1, gap: 0.5, alignItems: 'center' }}>
+              <TextField
+                inputRef={barcodeRef}
                 size="small"
-                options={productOptions}
-                getOptionLabel={o => o.name || ''}
-                loading={productLoading}
-                inputValue={productSearch}
-                onInputChange={(_, v) => setProductSearch(v)}
-                onChange={(_, v) => v && addToCart(v)}
-                filterOptions={x => x}
-                renderOption={(props, o) => (
-                  <Box component="li" {...props} key={o._id}>
-                    <Box>
-                      <Typography variant="body2" fontWeight={600}>{o.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        SKU: {o.sku} | ₹{o.sellingPrice} | GST: {o.gst}%
-                      </Typography>
+                placeholder="Scan barcode (F1)"
+                value={barcodeInput}
+                onChange={e => setBarcodeInput(e.target.value)}
+                onKeyDown={handleBarcodeKey}
+                autoFocus
+                sx={{ flex: 1 }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><QrCodeScannerIcon sx={{ fontSize: 18 }} /></InputAdornment>,
+                }}
+              />
+              {barcodeInput && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleAddBarcode}
+                  sx={{ px: 2, height: 40, flexShrink: 0 }}
+                >
+                  Add
+                </Button>
+              )}
+            </Box>
+            <Autocomplete
+              size="small"
+              sx={{ flex: 1.2 }}
+              options={productOptions}
+              getOptionLabel={o => o.name || ''}
+              loading={productLoading}
+              inputValue={productSearch}
+              onInputChange={(_, v) => setProductSearch(v)}
+              onChange={(_, v) => v && addToCart(v)}
+              filterOptions={x => x}
+              renderOption={(props, o) => (
+                <Box component="li" {...props} key={o._id} sx={{ py: 0.5 }}>
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>{o.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">{o.sku} · ₹{o.sellingPrice}</Typography>
+                  </Box>
+                </Box>
+              )}
+              renderInput={(params) => (
+                <TextField {...params} placeholder="Search product (F2)"
+                  inputRef={searchRef}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18 }} /></InputAdornment>,
+                    endAdornment: productLoading ? <CircularProgress size={14} /> : null,
+                  }}
+                />
+              )}
+            />
+          </Box>
+
+          {/* Cart table */}
+          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 1.5 }}>
+            {cart.length === 0 ? (
+              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" flex={1} color="text.disabled">
+                <ShoppingCartIcon sx={{ fontSize: 48, mb: 1 }} />
+                <Typography variant="body2">Scan or search to add items</Typography>
+              </Box>
+            ) : (
+              <>
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Product</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, width: 80 }}>Qty</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, width: 70 }}>Rate</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, width: 60 }}>Disc</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, width: 70 }}>Total</TableCell>
+                        <TableCell sx={{ width: 40 }} />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {cart.map(item => (
+                        <CartRow key={item.product._id} item={item}
+                          onQty={updateQty} onRemove={removeItem} onDiscount={setLineDiscount} />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'background.paper' }}>
+                  <Typography variant="caption" color="text.secondary">{totalItems} item(s)</Typography>
+                  <Tooltip title="Clear cart">
+                    <IconButton size="small" color="error" onClick={clearCart} sx={{ width: 28, height: 28 }}>
+                      <ClearAllIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </>
+            )}
+          </Card>
+        </Box>
+
+        {/* ── RIGHT: Summary + Payment (30%) ── */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 280, maxWidth: 340 }}>
+          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 1.5 }}>
+
+            {/* Scrollable content */}
+            <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+
+              {/* Customer section */}
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.5}>CUSTOMER</Typography>
+                {customer && phoneStatus === 'idle' ? (
+                  // Confirmed customer card
+                  <Paper variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Avatar sx={{ width: 26, height: 26, fontSize: 11, bgcolor: 'primary.main' }}>{customer.name[0]}</Avatar>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600} fontSize={12}>{customer.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">{customer.phone}</Typography>
+                      </Box>
                     </Box>
+                    <IconButton size="small" onClick={() => { setCustomer(null); setPhoneInput(''); setNameInput(''); setPhoneStatus('idle'); }} sx={{ width: 22, height: 22 }}>
+                      <CloseIcon sx={{ fontSize: 11 }} />
+                    </IconButton>
+                  </Paper>
+                ) : (
+                  <Box display="flex" gap={0.5} flexDirection="column">
+                    <TextField
+                      size="small" placeholder="Phone number" value={phoneInput}
+                      onChange={e => handlePhoneChange(e.target.value)}
+                      inputProps={{ maxLength: 15 }}
+                      InputProps={{
+                        endAdornment: phoneStatus === 'searching'
+                          ? <InputAdornment position="end"><CircularProgress size={12} /></InputAdornment>
+                          : phoneStatus === 'found'
+                            ? <InputAdornment position="end"><Chip label="Found" size="small" color="success" sx={{ height: 18, fontSize: 10 }} /></InputAdornment>
+                            : phoneStatus === 'new'
+                              ? <InputAdornment position="end"><Chip label="New" size="small" color="warning" sx={{ height: 18, fontSize: 10 }} /></InputAdornment>
+                              : null
+                      }}
+                      sx={{ '& input': { fontSize: 12, py: '6px' } }}
+                    />
+                    {(phoneStatus === 'found' || phoneStatus === 'new') && (
+                      <TextField
+                        size="small"
+                        placeholder={phoneStatus === 'new' ? 'Enter customer name' : 'Update name'}
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        autoFocus
+                        helperText={phoneStatus === 'found' ? 'Existing customer — edit name to update' : 'New customer — will be saved on checkout'}
+                        FormHelperTextProps={{ sx: { fontSize: 10, mx: 0 } }}
+                        sx={{ '& input': { fontSize: 12, py: '6px' } }}
+                      />
+                    )}
                   </Box>
                 )}
-                renderInput={(params) => (
-                  <TextField {...params} placeholder="Search product by name..."
-                    InputProps={{ ...params.InputProps, endAdornment: productLoading ? <CircularProgress size={16} /> : null }}
-                  />
-                )}
-              />
-            </CardContent>
-            <Divider />
-            <CardContent sx={{ flex: 1, overflow: 'auto', py: 1 }}>
-              {cart.length === 0 ? (
-                <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-                  <Typography color="text.secondary">Scan or search products to add to cart</Typography>
-                </Box>
-              ) : (
-                <List dense disablePadding>
-                  {cart.map(item => (
-                    <ListItem
-                      key={item.product._id} divider
-                      secondaryAction={
-                        <Box display="flex" alignItems="center" gap={0.5}>
-                          <IconButton size="small" onClick={() => updateQty(item.product._id, -1)}><RemoveIcon fontSize="small" /></IconButton>
-                          <Typography sx={{ minWidth: 24, textAlign: 'center' }}>{item.quantity}</Typography>
-                          <IconButton size="small" onClick={() => updateQty(item.product._id, 1)}><AddIcon fontSize="small" /></IconButton>
-                          <IconButton size="small" color="error" onClick={() => removeItem(item.product._id)}><DeleteIcon fontSize="small" /></IconButton>
-                        </Box>
-                      }
-                    >
-                      <ListItemText
-                        primary={item.product.name}
-                        secondary={`₹${item.price} × ${item.quantity} = ₹${item.total.toFixed(2)}${item.gst ? ` (+${item.gst}% GST)` : ''}`}
-                      />
-                    </ListItem>
+              </Box>
+
+              <Divider />
+
+              {/* Rounding */}
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.5}>ROUNDING</Typography>
+                <ToggleButtonGroup value={roundingMethod} exclusive
+                  onChange={(_, v) => v && setRoundingMethod(v)}
+                  size="small" fullWidth sx={{ '& .MuiToggleButton-root': { fontSize: 10, py: 0.4, textTransform: 'capitalize' } }}>
+                  {[['none','No Round'],['round','Round'],['floor','Floor'],['ceil','Ceil']].map(([v, l]) => (
+                    <ToggleButton key={v} value={v} sx={{ flex: 1 }}>{l}</ToggleButton>
                   ))}
-                </List>
+                </ToggleButtonGroup>
+              </Box>
+
+              <Divider />
+
+              {/* Bill breakdown */}
+              <Box display="flex" flexDirection="column" gap={0.4}>
+                <Box display="flex" justifyContent="space-between">
+                  <Typography variant="caption" color="text.secondary">Subtotal</Typography>
+                  <Typography variant="caption" fontWeight={600}>₹{subtotal.toFixed(2)}</Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between">
+                  <Typography variant="caption" color="text.secondary">Tax (GST)</Typography>
+                  <Typography variant="caption" fontWeight={600}>₹{taxAmount.toFixed(2)}</Typography>
+                </Box>
+                {lineDiscounts > 0 && (
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="caption" color="text.secondary">Item Disc</Typography>
+                    <Typography variant="caption" fontWeight={600} color="success.main">-₹{lineDiscounts.toFixed(2)}</Typography>
+                  </Box>
+                )}
+                {roundingMethod !== 'none' && (
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="caption" color="text.secondary">Rounding</Typography>
+                    <Typography variant="caption" fontWeight={600} color={total - originalTotal >= 0 ? 'success.main' : 'error.main'}>
+                      {total - originalTotal >= 0 ? '+' : ''}₹{(total - originalTotal).toFixed(2)}
+                    </Typography>
+                  </Box>
+                )}
+                <Box display="flex" justifyContent="space-between" alignItems="center" gap={1}>
+                  <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
+                    <LocalOfferIcon sx={{ fontSize: 11 }} /> Bill Disc
+                  </Typography>
+                  <TextField size="small" type="number" value={discount}
+                    onChange={e => setDiscount(e.target.value)}
+                    inputProps={{ min: 0, style: { textAlign: 'right', padding: '2px 4px', fontSize: 11 } }}
+                    InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: 0 }}>₹</InputAdornment> }}
+                    sx={{ width: 80, '& .MuiOutlinedInput-root': { fontSize: 11, height: 26 } }} />
+                </Box>
+              </Box>
+
+              <Divider />
+
+              {/* Total */}
+              <Box sx={{ bgcolor: 'primary.main', color: 'white', px: 1.5, py: 1, borderRadius: 1, textAlign: 'center' }}>
+                <Typography variant="caption" color="inherit" sx={{ opacity: 0.9 }}>TOTAL</Typography>
+                <Typography variant="h5" fontWeight={800} sx={{ lineHeight: 1.1 }}>₹{total.toFixed(2)}</Typography>
+                {roundingMethod !== 'none' && (
+                  <Typography variant="caption" color="inherit" sx={{ opacity: 0.75 }}>(rounded)</Typography>
+                )}
+              </Box>
+
+              {/* Payment method */}
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.5}>PAYMENT</Typography>
+                <ToggleButtonGroup value={paymentMethod} exclusive
+                  onChange={(_, v) => v && setPaymentMethod(v)}
+                  size="small" fullWidth sx={{ '& .MuiToggleButton-root': { fontSize: 10, py: 0.4, textTransform: 'capitalize' } }}>
+                  {['cash', 'upi', 'card', 'credit', 'split'].map(m => (
+                    <ToggleButton key={m} value={m} sx={{ flex: 1 }}>{m}</ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Box>
+
+              {paymentMethod === 'cash' && (
+                <TextField size="small" label="Cash Received" type="number"
+                  value={cashReceived} onChange={e => setCashReceived(e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                  helperText={cashReceived ? `Return Cash: ₹${change.toFixed(2)}` : ''}
+                  fullWidth />
               )}
-            </CardContent>
-          </Card>
-        </Grid>
+            </Box>
 
-        {/* Right: Summary */}
-        <Grid item xs={12} md={5}>
-          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ flex: 1 }}>
-              <Typography variant="h6" mb={2}>Order Summary</Typography>
-
-              {/* Customer */}
-              <Autocomplete
-                size="small" sx={{ mb: 2 }}
-                options={customerOptions}
-                getOptionLabel={o => `${o.name} (${o.phone})`}
-                value={customer}
-                onChange={(_, v) => setCustomer(v)}
-                onInputChange={(_, v) => setCustomerSearch(v)}
-                filterOptions={x => x}
-                renderInput={(params) => <TextField {...params} label="Customer (optional)" />}
-              />
-
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography color="text.secondary">Items</Typography>
-                <Typography>{cart.reduce((s, i) => s + i.quantity, 0)}</Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography color="text.secondary">Subtotal</Typography>
-                <Typography>₹{subtotal.toFixed(2)}</Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography color="text.secondary">Tax</Typography>
-                <Typography>₹{taxAmount.toFixed(2)}</Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between" mb={1} alignItems="center">
-                <Typography color="text.secondary">Discount</Typography>
-                <TextField size="small" type="number" value={discount}
-                  onChange={e => setDiscount(e.target.value)}
-                  sx={{ width: 100 }} inputProps={{ min: 0 }} />
-              </Box>
-              <Divider sx={{ my: 1.5 }} />
-              <Box display="flex" justifyContent="space-between" mb={2}>
-                <Typography variant="h6">Total</Typography>
-                <Typography variant="h6" color="primary" fontWeight={700}>₹{total.toFixed(2)}</Typography>
-              </Box>
-
-              <Typography variant="body2" mb={1} fontWeight={500}>Payment Method</Typography>
-              <ToggleButtonGroup
-                value={paymentMethod} exclusive
-                onChange={(_, v) => v && setPaymentMethod(v)}
-                size="small" fullWidth sx={{ mb: 2 }}
-              >
-                {['cash', 'upi', 'card', 'credit'].map(m => (
-                  <ToggleButton key={m} value={m} sx={{ textTransform: 'capitalize', flex: 1 }}>{m}</ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-            </CardContent>
-            <CardContent sx={{ pt: 0 }}>
-              <Button
-                fullWidth variant="contained" size="large"
+            {/* Checkout button - always visible, pinned at bottom */}
+            <Box sx={{ p: 1.5, pt: 1, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
+              <Button fullWidth variant="contained" size="large"
+                disabled={!cart.length || !selectedBranch || processing}
                 onClick={() => setPayDialog(true)}
-                disabled={!cart.length || !selectedBranch}
-              >
-                Checkout — ₹{total.toFixed(2)}
+                startIcon={<PaymentsIcon />}
+                sx={{ py: 1.25, fontWeight: 700, borderRadius: 1 }}>
+                {processing ? <CircularProgress size={18} color="inherit" /> : 'Checkout (F3)'}
               </Button>
-            </CardContent>
+            </Box>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
-      <Dialog open={payDialog} onClose={() => setPayDialog(false)}>
-        <DialogTitle>Confirm Payment</DialogTitle>
-        <DialogContent sx={{ minWidth: 300 }}>
-          <Box display="flex" justifyContent="space-between" mb={1}>
-            <Typography>Items:</Typography>
-            <Typography>{cart.reduce((s, i) => s + i.quantity, 0)}</Typography>
-          </Box>
-          <Box display="flex" justifyContent="space-between" mb={1}>
-            <Typography>Total:</Typography>
-            <Typography fontWeight={700}>₹{total.toFixed(2)}</Typography>
-          </Box>
-          <Box display="flex" justifyContent="space-between">
-            <Typography>Method:</Typography>
-            <Chip label={paymentMethod} size="small" color="primary" />
-          </Box>
+      {/* ── Payment Dialog ── */}
+      <Dialog open={payDialog} onClose={() => !processing && setPayDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PaymentsIcon color="primary" /> Confirm Payment
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
+            <Box display="flex" justifyContent="space-between" mb={0.5}>
+              <Typography variant="body2" color="text.secondary">Items</Typography>
+              <Typography variant="body2">{totalItems}</Typography>
+            </Box>
+            <Box display="flex" justifyContent="space-between" mb={0.5}>
+              <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+              <Typography variant="body2">₹{subtotal.toFixed(2)}</Typography>
+            </Box>
+            <Box display="flex" justifyContent="space-between" mb={0.5}>
+              <Typography variant="body2" color="text.secondary">Tax</Typography>
+              <Typography variant="body2">₹{taxAmount.toFixed(2)}</Typography>
+            </Box>
+            {(lineDiscounts + billDiscount) > 0 && (
+              <Box display="flex" justifyContent="space-between" mb={0.5}>
+                <Typography variant="body2" color="text.secondary">Discount</Typography>
+                <Typography variant="body2" color="success.main">-₹{(lineDiscounts + billDiscount).toFixed(2)}</Typography>
+              </Box>
+            )}
+            <Divider sx={{ my: 0.75 }} />
+            <Box display="flex" justifyContent="space-between">
+              <Typography fontWeight={700}>Total</Typography>
+              <Typography fontWeight={800} color="primary.main" fontSize="1.1rem">₹{total.toFixed(2)}</Typography>
+            </Box>
+          </Paper>
+
           {customer && (
-            <Box display="flex" justifyContent="space-between" mt={1}>
-              <Typography>Customer:</Typography>
-              <Typography>{customer.name}</Typography>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: 'secondary.main' }}>
+                {customer.name[0]}
+              </Avatar>
+              <Box>
+                <Typography variant="body2" fontWeight={600}>{customer.name}</Typography>
+                <Typography variant="caption" color="text.secondary">{customer.phone}</Typography>
+              </Box>
             </Box>
           )}
+
+          <ToggleButtonGroup value={paymentMethod} exclusive
+            onChange={(_, v) => v && setPaymentMethod(v)}
+            size="small" fullWidth>
+            {['cash', 'upi', 'card', 'credit', 'split'].map(m => (
+              <ToggleButton key={m} value={m} sx={{ textTransform: 'capitalize', fontSize: 12, flex: 1 }}>{m}</ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          {(paymentMethod === 'cash' || paymentMethod === 'split') && (
+            <TextField size="small" label="Cash Received" type="number"
+              value={cashReceived} onChange={e => setCashReceived(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              autoFocus fullWidth />
+          )}
+          {paymentMethod === 'split' && (
+            <TextField size="small" label="UPI Amount" type="number"
+              value={splitUpi} onChange={e => setSplitUpi(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              fullWidth />
+          )}
+          {paymentMethod === 'cash' && cashReceived && (
+            <Alert severity={change >= 0 ? 'success' : 'error'} sx={{ py: 0.5 }}>
+              {change >= 0 ? `Return Cash: ₹${change.toFixed(2)}` : `Short: ₹${Math.abs(change).toFixed(2)}`}
+            </Alert>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPayDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCheckout}>Confirm & Complete</Button>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setPayDialog(false)} variant="outlined" disabled={processing}>Cancel</Button>
+          <Button variant="contained" size="large" onClick={handleCheckout} disabled={processing ||
+            (paymentMethod === 'cash' && cashReceived !== '' && +cashReceived < total)}
+            startIcon={processing ? <CircularProgress size={16} color="inherit" /> : <ReceiptIcon />}
+            sx={{ flex: 1 }}>
+            {processing ? 'Processing...' : 'Complete & Print'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

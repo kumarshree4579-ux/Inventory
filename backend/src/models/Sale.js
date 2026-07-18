@@ -25,6 +25,8 @@ const saleSchema = new mongoose.Schema({
   paymentDetails: mongoose.Schema.Types.Mixed,
   status: { type: String, enum: ['completed', 'held', 'cancelled', 'returned'], default: 'completed' },
   notes: String,
+  roundingMethod: { type: String, enum: ['none', 'round', 'floor', 'ceil'], default: 'none' },
+  originalTotal: { type: Number },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Sale', saleSchema);

@@ -59,7 +59,10 @@ const CategoryForm = ({ open, onClose, onSaved, editing }) => {
             label="Parent Category (optional)"
             value={parentId}
             displayValue={parentName}
-            onChange={(id) => setParentId(id || '')}
+            onChange={(id, name) => {
+              setParentId(id || '');
+              setParentName(name || '');
+            }}
             fetchOptions={fetchParents}
             onCreate={async (name) => {
               const created = await createParent(name);

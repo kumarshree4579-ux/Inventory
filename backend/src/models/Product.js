@@ -23,11 +23,12 @@ const productSchema = new mongoose.Schema({
   expiryDate:       Date,
   manufacturingDate:Date,
   batchNumber:      String,
+  productType:      { type: String, trim: true },
   status:           { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 
 // Full-text search index for autocomplete
-productSchema.index({ name: 'text', sku: 'text', barcode: 'text', hsn: 'text' });
+productSchema.index({ name: 'text', sku: 'text', barcode: 'text', hsn: 'text', productType: 'text' });
 
 // Compound indexes for common query patterns (supports 1L+ records)
 productSchema.index({ status: 1, name: 1 });

@@ -15,6 +15,7 @@ import POSBilling from './pages/pos/POSBilling';
 import Purchase from './pages/purchase/Purchase';
 import Suppliers from './pages/purchase/Suppliers';
 import Customers from './pages/customers/Customers';
+import Sales from './pages/sales/Sales';
 import Returns from './pages/returns/Returns';
 import Expenses from './pages/expenses/Expenses';
 import CashManagement from './pages/cash/CashManagement';
@@ -43,6 +44,7 @@ const App = () => (
         <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="pos" element={<POSBilling />} />
+          <Route path="sales" element={<Sales />} />
           {/* Inventory */}
           <Route path="products" element={<Products />} />
           <Route path="categories" element={<Categories />} />

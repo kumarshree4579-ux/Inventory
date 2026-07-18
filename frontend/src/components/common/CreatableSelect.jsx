@@ -10,7 +10,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlineRounded';
  * Props:
  *   label          - field label
  *   value          - current selected id
- *   onChange(id)   - called with selected _id (or null)
+ *   onChange(id, displayValue)   - called with selected _id and optional display name (or null)
  *   fetchOptions(q)- async fn returning [{_id, name, ...}]
  *   onCreate(name) - async fn that creates and returns {_id, name}
  *   displayValue   - current display name (for showing selected label)
@@ -59,7 +59,7 @@ const CreatableSelect = ({
   };
 
   const handleSelect = (opt) => {
-    onChange(opt._id);
+    onChange(opt._id, opt.name);
     setInputVal(opt.name);
     setOpen(false);
   };
@@ -76,7 +76,7 @@ const CreatableSelect = ({
     setCreating(true);
     try {
       const created = await onCreate(name);
-      onChange(created._id);
+      onChange(created._id, created.name);
       setInputVal(created.name);
       setOpen(false);
     } catch (err) {

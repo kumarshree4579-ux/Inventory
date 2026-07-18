@@ -3,6 +3,9 @@ const mongoose = require('mongoose');
 const User = require('./src/models/User');
 const { Role, Permission } = require('./src/models/Role');
 const Branch = require('./src/models/Branch');
+const Counter = require('./src/models/Counter');
+const Printer = require('./src/models/Printer');
+const Settings = require('./src/models/Settings');
 
 const MODULES = ['inventory', 'purchase', 'pos', 'reports', 'users', 'settings'];
 const ACTIONS = ['view', 'create', 'edit', 'delete', 'approve', 'export', 'print'];
@@ -190,6 +193,60 @@ async function seed() {
     }
   }
 
+  // Create default printer
+  let defaultPrinter = await Printer.findOne({ branch: defaultBranch._id });
+  if (!defaultPrinter) {
+    defaultPrinter = await Printer.create({
+      name: 'Main Thermal Printer',
+      type: 'thermal',
+      paperSize: '80mm',
+      connection: 'usb',
+      branch: defaultBranch._id,
+      status: 'active',
+      settings: { copies: 1, autoPrint: false, showQR: true, cutPaper: true, header: 'Inventory Pro', footer: 'Thank you for shopping!' },
+    });
+    console.log('\u2705 Default printer created: Main Thermal Printer');
+  } else {
+    console.log('\u2139\ufe0f  Default printer already exists');
+  }
+
+  // Create default counter
+  let defaultCounter = await Counter.findOne({ branch: defaultBranch._id });
+  if (!defaultCounter) {
+    defaultCounter = await Counter.create({
+      number: 1,
+      name: 'Counter 1',
+      branch: defaultBranch._id,
+      printer: defaultPrinter._id,
+      status: 'closed',
+      openingCash: 0,
+      currentCash: 0,
+    });
+    console.log('\u2705 Default counter created: Counter 1');
+  } else {
+    console.log('\u2139\ufe0f  Default counter already exists');
+  }
+
+  // Create default settings
+  const existingSettings = await Settings.findOne({ branch: defaultBranch._id });
+  if (!existingSettings) {
+    await Settings.create({
+      branch: defaultBranch._id,
+      storeName: 'Inventory Pro',
+      currency: 'INR',
+      currencySymbol: '\u20b9',
+      timezone: 'Asia/Kolkata',
+      dateFormat: 'DD/MM/YYYY',
+      taxName: 'GST',
+      invoicePrefix: 'INV',
+      invoiceStartNumber: 1000,
+      lowStockAlert: 5,
+    });
+    console.log('\u2705 Default settings created');
+  } else {
+    console.log('\u2139\ufe0f  Default settings already exist');
+  }
+
   console.log('\n--- Login Credentials ---');
   console.log('Admin    : admin / Admin@123');
   console.log('Manager  : manager / Demo@123');
@@ -197,7 +254,9 @@ async function seed() {
   console.log('Stock    : stockmgr / Demo@123');
   console.log('Purchase : purchasemgr / Demo@123');
   console.log('-------------------------');
-  console.log('Default Branch: Main Branch (MAIN)\n');
+  console.log('Default Branch: Main Branch (MAIN)');
+  console.log('Default Counter: Counter 1');
+  console.log('Default Printer: Main Thermal Printer\n');
 
   await mongoose.disconnect();
   process.exit(0);

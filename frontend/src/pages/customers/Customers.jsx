@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Chip, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Chip, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid, MenuItem, Select, FormControl, InputLabel, Box, Divider } from '@mui/material';
+import HistoryIcon from '@mui/icons-material/History';
 import { useForm, Controller } from 'react-hook-form';
 import ListPage from '../../components/common/ListPage';
 import { customersAPI } from '../../api/services';
 import toast from 'react-hot-toast';
 
 const columns = [
-  { field: 'name', headerName: 'Customer', flex: 1.2 },
+  { field: 'name', headerName: 'Customer', flex: 1.2, renderCell: ({ row }) => (
+    <Box>
+      <Typography variant="body2" fontWeight={600}>{row.name}</Typography>
+      {row.nameHistory?.length > 0 && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+          <HistoryIcon sx={{ fontSize: 10 }} />{row.nameHistory.length} name change{row.nameHistory.length > 1 ? 's' : ''}
+        </Typography>
+      )}
+    </Box>
+  )},
   { field: 'phone', headerName: 'Phone', flex: 1 },
   { field: 'email', headerName: 'Email', flex: 1.2 },
   { field: 'membership', headerName: 'Membership', flex: 0.9, renderCell: ({ value }) => <Chip label={value} size="small" color={value !== 'none' ? 'warning' : 'default'} /> },
@@ -54,6 +64,26 @@ const CustomerForm = ({ open, onClose, onSaved, editing }) => {
             <Grid size={12}><TextField fullWidth label="Address" multiline rows={2} {...register('address')} /></Grid>
             <Grid size={6}><TextField fullWidth label="City" {...register('city')} /></Grid>
             <Grid size={6}><TextField fullWidth label="GST Number" {...register('gstNumber')} /></Grid>
+            {editing?.nameHistory?.length > 0 && (
+              <Grid size={12}>
+                <Divider sx={{ mb: 1 }} />
+                <Typography variant="caption" fontWeight={700} color="text.secondary" display="flex" alignItems="center" gap={0.5}>
+                  <HistoryIcon sx={{ fontSize: 13 }} /> NAME CHANGE HISTORY
+                </Typography>
+                <Box sx={{ mt: 0.75, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {editing.nameHistory.map((h, i) => (
+                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 12 }}>
+                      <Typography variant="caption" color="error.main" sx={{ textDecoration: 'line-through' }}>{h.from}</Typography>
+                      <Typography variant="caption" color="text.disabled">→</Typography>
+                      <Typography variant="caption" color="success.main" fontWeight={600}>{h.to}</Typography>
+                      <Typography variant="caption" color="text.disabled" sx={{ ml: 'auto' }}>
+                        {new Date(h.changedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>

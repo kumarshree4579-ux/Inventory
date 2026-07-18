@@ -8,10 +8,12 @@ const audit = (module, action) => async (req, res, next) => {
         user: req.user?._id,
         module,
         action,
-        description: `${action} on ${module}`,
-        ip: req.ip,
+        description: `${req.user?.name || 'Unknown'} performed ${action} on ${module}`,
+        before: req._auditBefore || undefined,
+        after: data?._id ? { id: data._id, ...data } : undefined,
+        ip: req.ip || req.headers['x-forwarded-for'],
         device: req.headers['user-agent'],
-        branch: req.user?.branch,
+        branch: req.user?.branch?._id || req.user?.branch,
       }).catch(() => {});
     }
     return originalJson(data);

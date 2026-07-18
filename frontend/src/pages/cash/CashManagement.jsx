@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, Chip, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Divider, Alert, CircularProgress,
+  FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import LockIcon from '@mui/icons-material/Lock';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import PageHeader from '../../components/common/PageHeader';
-import { cashDrawerAPI } from '../../api/services';
+import { cashDrawerAPI, branchesAPI, countersAPI } from '../../api/services';
+import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 
 const SummaryCard = ({ label, value, color }) => (
@@ -23,12 +25,34 @@ const SummaryCard = ({ label, value, color }) => (
 );
 
 const CashManagement = () => {
+  const { user } = useAuthStore();
+  const isAdmin = !user?.branch;
   const [drawer, setDrawer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [closeDialog, setCloseDialog] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [counters, setCounters] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState(user?.branch?._id || user?.branch || '');
+  const [selectedCounter, setSelectedCounter] = useState('');
   const openForm = useForm();
   const closeForm = useForm();
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    branchesAPI.getAll({ limit: 100, status: 'active' }).then(({ data }) => {
+      const list = data.data || [];
+      setBranches(list);
+      if (list.length && !selectedBranch) setSelectedBranch(list[0]._id);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBranch) return;
+    countersAPI.getAll({ branch: selectedBranch, limit: 20 }).then(({ data }) => {
+      setCounters(data.data || []);
+    }).catch(() => {});
+  }, [selectedBranch]);
 
   const fetchDrawer = async () => {
     try {
@@ -45,7 +69,12 @@ const CashManagement = () => {
 
   const handleOpen = async (data) => {
     try {
-      await cashDrawerAPI.open({ ...data, openingCash: +data.openingCash });
+      await cashDrawerAPI.open({
+        openingCash: +data.openingCash,
+        notes: data.notes,
+        branch: selectedBranch || undefined,
+        counter: selectedCounter || undefined,
+      });
       toast.success('Cash drawer opened');
       openForm.reset(); setOpenDialog(false); fetchDrawer();
     } catch (err) {
@@ -138,8 +167,22 @@ const CashManagement = () => {
         <form onSubmit={openForm.handleSubmit(handleOpen)}>
           <DialogTitle>Open Cash Drawer</DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+            {isAdmin && (
+              <FormControl size="small" fullWidth>
+                <InputLabel>Branch</InputLabel>
+                <Select value={selectedBranch} onChange={e => { setSelectedBranch(e.target.value); setSelectedCounter(''); }} label="Branch">
+                  {branches.map(b => <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )}
+            <FormControl size="small" fullWidth>
+              <InputLabel>Counter (optional)</InputLabel>
+              <Select value={selectedCounter} onChange={e => setSelectedCounter(e.target.value)} label="Counter (optional)">
+                <MenuItem value=""><em>No counter</em></MenuItem>
+                {counters.map(c => <MenuItem key={c._id} value={c._id}>{c.name || `Counter ${c.number}`}</MenuItem>)}
+              </Select>
+            </FormControl>
             <TextField fullWidth label="Opening Cash (₹)" type="number" {...openForm.register('openingCash', { required: true, min: 0 })} />
-            <TextField fullWidth label="Counter ID" {...openForm.register('counter', { required: true })} />
             <TextField fullWidth label="Notes" multiline rows={2} {...openForm.register('notes')} />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2.5 }}>

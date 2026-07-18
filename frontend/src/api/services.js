@@ -66,6 +66,8 @@ export const suppliersAPI = {
 
 export const customersAPI = {
   getAll: (params) => api.get('/customers', { params }),
+  getOne: (id) => api.get(`/customers/${id}`),
+  byPhone: (phone) => api.get(`/customers/by-phone/${encodeURIComponent(phone)}`),
   create: (data) => api.post('/customers', data),
   update: (id, data) => api.put(`/customers/${id}`, data),
 };

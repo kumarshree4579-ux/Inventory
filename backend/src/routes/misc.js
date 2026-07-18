@@ -8,6 +8,7 @@ const Settings = require('../models/Settings');
 const Printer = require('../models/Printer');
 const createCRUD = require('../controllers/crudController');
 const { protect, can } = require('../middleware/auth');
+const audit = require('../middleware/audit');
 
 const getBranch = (req) => req.query.branch || req.user.branch?._id || req.user.branch;
 
@@ -182,8 +183,8 @@ router.put('/settings', protect, can('settings', 'edit'), async (req, res, next)
 const printerCRUD = createCRUD(Printer, 'branch');
 router.get('/printers', protect, can('settings', 'view'), printerCRUD.getAll);
 router.get('/printers/:id', protect, can('settings', 'view'), printerCRUD.getOne);
-router.post('/printers', protect, can('settings', 'create'), printerCRUD.create);
-router.put('/printers/:id', protect, can('settings', 'edit'), printerCRUD.update);
-router.delete('/printers/:id', protect, can('settings', 'delete'), printerCRUD.remove);
+router.post('/printers', protect, can('settings', 'create'), audit('printers', 'create'), printerCRUD.create);
+router.put('/printers/:id', protect, can('settings', 'edit'), audit('printers', 'update'), printerCRUD.update);
+router.delete('/printers/:id', protect, can('settings', 'delete'), audit('printers', 'delete'), printerCRUD.remove);
 
 module.exports = router;

@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const cashDrawerSchema = new mongoose.Schema({
-  counter: { type: mongoose.Schema.Types.ObjectId, ref: 'Counter', required: true },
-  branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
+  counter: { type: mongoose.Schema.Types.ObjectId, ref: 'Counter' },
+  branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   date: { type: Date, default: Date.now },
   openingCash: { type: Number, required: true },
   cashIn: { type: Number, default: 0 },

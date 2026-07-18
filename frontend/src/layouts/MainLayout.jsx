@@ -22,7 +22,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import UndoIcon from '@mui/icons-material/Undo';
-import QrCodeIcon from '@mui/icons-material/QrCode';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import useAuthStore from '../store/authStore';
 import { notificationsAPI } from '../api/services';
 import dayjs from 'dayjs';
@@ -39,6 +39,7 @@ const SIDEBAR_HOVER_BG = 'rgba(255,255,255,0.05)';
 const navItems = [
   { label: 'Dashboard', icon: <DashboardIcon fontSize="small" />, path: '/' },
   { label: 'POS Billing', icon: <PointOfSaleIcon fontSize="small" />, path: '/pos' },
+  { label: 'Sales History', icon: <ReceiptLongIcon fontSize="small" />, path: '/sales' },
   {
     label: 'Inventory', icon: <Inventory2Icon fontSize="small" />, children: [
       { label: 'Products', path: '/products' },
@@ -287,8 +288,10 @@ const MainLayout = () => {
         {drawer}
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3, mt: '56px', minHeight: '100vh', bgcolor: 'background.default', width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` } }}>
-        <Outlet />
+      <Box component="main" sx={{ flexGrow: 1, mt: '56px', minHeight: 'calc(100vh - 56px)', bgcolor: 'background.default', width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` }, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ flex: 1, p: location.pathname === '/pos' ? 0 : 3, display: 'flex', flexDirection: 'column' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

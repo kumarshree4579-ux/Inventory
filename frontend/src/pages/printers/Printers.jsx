@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import ListPage from '../../components/common/ListPage';
-import { printersAPI } from '../../api/services';
+import { printersAPI, branchesAPI } from '../../api/services';
 import toast from 'react-hot-toast';
 
 const TYPE_COLOR = { thermal: 'primary', a4: 'info', label: 'warning', barcode: 'success' };
@@ -24,9 +24,12 @@ const DEFAULTS = { type: 'thermal', paperSize: '80mm', connection: 'usb', autoPr
 const PrinterForm = ({ open, onClose, onSaved, editing }) => {
   const { register, handleSubmit, reset, control, watch, formState: { isSubmitting } } = useForm({ defaultValues: DEFAULTS });
   const connection = watch('connection');
+  const [branches, setBranches] = useState([]);
 
   useEffect(() => {
-    if (open) reset(editing ? { ...DEFAULTS, ...editing, ...editing.settings } : DEFAULTS);
+    if (!open) return;
+    branchesAPI.getAll({ limit: 100, status: 'active' }).then(r => setBranches(r.data.data || [])).catch(() => {});
+    reset(editing ? { ...DEFAULTS, ...editing, ...editing.settings, branch: editing.branch?._id || editing.branch || '' } : DEFAULTS);
   }, [open, editing]);
 
   const onSubmit = async (data) => {
@@ -48,7 +51,17 @@ const PrinterForm = ({ open, onClose, onSaved, editing }) => {
         <DialogTitle>{editing ? 'Edit Printer' : 'Add Printer'}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Grid container spacing={2}>
-            <Grid size={12}><TextField fullWidth label="Printer Name" {...register('name', { required: true })} /></Grid>
+            <Grid size={12}><TextField fullWidth label="Printer Name *" {...register('name', { required: true })} /></Grid>
+            <Grid size={12}>
+              <FormControl fullWidth size="small" required>
+                <InputLabel>Branch *</InputLabel>
+                <Controller name="branch" control={control} defaultValue="" rules={{ required: true }} render={({ field }) => (
+                  <Select {...field} label="Branch *">
+                    {branches.map(b => <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>)}
+                  </Select>
+                )} />
+              </FormControl>
+            </Grid>
             <Grid size={4}>
               <FormControl fullWidth size="small">
                 <InputLabel>Type</InputLabel>
