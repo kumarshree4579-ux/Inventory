@@ -93,9 +93,8 @@ router.get('/cash-drawer/history', protect, can('pos', 'view'), async (req, res,
 
 router.post('/cash-drawer/open', protect, can('pos', 'create'), async (req, res, next) => {
   try {
-    const branch = getBranch(req);
+    const branch = req.body.branch || req.user.branch?._id || req.user.branch;
     if (!branch) return res.status(400).json({ message: 'Branch required' });
-    // Close any existing open drawer for this counter
     if (req.body.counter) {
       await CashDrawer.updateMany({ counter: req.body.counter, status: 'open' }, { status: 'closed' });
     }
