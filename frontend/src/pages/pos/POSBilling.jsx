@@ -20,19 +20,8 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import CloseIcon from '@mui/icons-material/Close';
 import { productsAPI, salesAPI, customersAPI, branchesAPI, countersAPI } from '../../api/services';
 import useAuthStore from '../../store/authStore';
+import { printReceipt } from '../../utils/print';
 import toast from 'react-hot-toast';
-
-const printReceipt = (sale, storeName = 'Inventory Pro') => {
-  const w = window.open('', '_blank', 'width=400,height=600');
-  if (!w) return;
-  const rows = sale.items.map(it => `<tr><td>${it.product?.name || '—'}</td><td style="text-align:center">${it.quantity}</td><td style="text-align:right">₹${(+it.price).toFixed(2)}</td><td style="text-align:right">₹${(+it.total).toFixed(2)}</td></tr>`).join('');
-  let roundingText = '';
-  if (sale.roundingMethod && sale.roundingMethod !== 'none') {
-    roundingText = `<tr><td>Rounding (${sale.roundingMethod})</td><td style="text-align:right">₹${(+sale.originalTotal - +sale.total).toFixed(2)}</td></tr>`;
-  }
-  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:12px;padding:16px;width:300px}h2{text-align:center;font-size:16px;margin-bottom:4px}.center{text-align:center}.divider{border-top:1px dashed #000;margin:8px 0}table{width:100%;border-collapse:collapse}th{font-size:11px;border-bottom:1px solid #000;padding:3px 0}td{padding:3px 0;vertical-align:top}.total-row td{font-weight:bold;border-top:1px solid #000;padding-top:4px}.footer{text-align:center;margin-top:12px;font-size:11px;color:#555}</style></head><body><h2>${storeName}</h2><div class="center" style="font-size:11px;color:#555">Tax Invoice</div><div class="divider"></div><div>Bill#: <b>${sale.billNumber}</b></div><div>Date: ${new Date(sale.createdAt).toLocaleString('en-IN')}</div>${sale.customer ? `<div>Customer: ${sale.customer.name}</div>` : ''}${sale.cashier ? `<div>Cashier: ${sale.cashier.name}</div>` : ''}<div class="divider"></div><table><thead><tr><th style="text-align:left">Item</th><th>Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amt</th></tr></thead><tbody>${rows}</tbody></table><div class="divider"></div><table><tr><td>Subtotal</td><td style="text-align:right">₹${(+sale.subtotal).toFixed(2)}</td></tr><tr><td>Tax</td><td style="text-align:right">₹${(+sale.taxAmount).toFixed(2)}</td></tr>${sale.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-₹${(+sale.discountAmount).toFixed(2)}</td></tr>` : ''}${roundingText}<tr class="total-row"><td>TOTAL</td><td style="text-align:right">₹${(+sale.total).toFixed(2)}</td></tr><tr><td>Payment</td><td style="text-align:right">${sale.paymentMethod?.toUpperCase()}</td></tr></table><div class="footer">Thank you for shopping!</div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000);}</script></body></html>`);
-  w.document.close();
-};
 
 const CartRow = ({ item, onQty, onRemove, onDiscount }) => {
   const lineTotal = (item.price * item.quantity) - (item.lineDiscount || 0);
