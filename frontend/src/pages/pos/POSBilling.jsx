@@ -18,18 +18,30 @@ import ClearAllIcon from '@mui/icons-material/ClearAll';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import CloseIcon from '@mui/icons-material/Close';
-import { productsAPI, salesAPI, customersAPI, branchesAPI, countersAPI } from '../../api/services';
+import { productsAPI, salesAPI, customersAPI, branchesAPI, countersAPI, stockAPI } from '../../api/services';
 import useAuthStore from '../../store/authStore';
 import { printReceipt } from '../../utils/print';
 import toast from 'react-hot-toast';
 
 const CartRow = ({ item, onQty, onRemove, onDiscount }) => {
   const lineTotal = (item.price * item.quantity) - (item.lineDiscount || 0);
+  const atMax = item.availableStock !== undefined && item.quantity >= item.availableStock;
+  const outOfStock = item.availableStock === 0;
   return (
-    <TableRow hover sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+    <TableRow hover sx={{ '&:hover': { bgcolor: 'action.hover' }, ...(outOfStock && { bgcolor: 'error.50' }) }}>
       <TableCell sx={{ py: 0.75, pl: 1 }}>
         <Typography variant="body2" fontWeight={600}>{item.product.name}</Typography>
-        <Typography variant="caption" color="text.secondary">{item.product.sku}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">{item.product.sku}</Typography>
+          {item.availableStock !== undefined && (
+            <Chip
+              label={item.availableStock === 0 ? 'Out of Stock' : `Stock: ${item.availableStock}`}
+              size="small"
+              color={item.availableStock === 0 ? 'error' : item.availableStock <= 5 ? 'warning' : 'default'}
+              sx={{ height: 16, fontSize: 9, '& .MuiChip-label': { px: 0.75 } }}
+            />
+          )}
+        </Box>
       </TableCell>
       <TableCell align="center" sx={{ py: 0.75, width: 80 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
@@ -37,7 +49,7 @@ const CartRow = ({ item, onQty, onRemove, onDiscount }) => {
             <RemoveIcon sx={{ fontSize: 12 }} />
           </IconButton>
           <Typography sx={{ minWidth: 24, textAlign: 'center', fontWeight: 700, fontSize: 13 }}>{item.quantity}</Typography>
-          <IconButton size="small" onClick={() => onQty(item.product._id, 1)} sx={{ width: 24, height: 24 }}>
+          <IconButton size="small" onClick={() => onQty(item.product._id, 1)} disabled={atMax} sx={{ width: 24, height: 24 }}>
             <AddIcon sx={{ fontSize: 12 }} />
           </IconButton>
         </Box>

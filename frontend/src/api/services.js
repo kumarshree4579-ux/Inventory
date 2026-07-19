@@ -96,6 +96,7 @@ export const purchaseAPI = {
 
 export const stockAPI = {
   getAll: (params) => api.get('/stock', { params }),
+  getProductStock: (productId, branch) => api.get(`/stock/product/${productId}`, { params: { branch } }),
   adjust: (data) => api.post('/stock/adjust', data),
   transfer: (data) => api.post('/stock/transfer', data),
   getTransactions: (params) => api.get('/stock/transactions', { params }),
