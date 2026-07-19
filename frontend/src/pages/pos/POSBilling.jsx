@@ -139,21 +139,40 @@ const POSBilling = () => {
   }, [productSearch]);
 
 
-  const addToCart = useCallback((product) => {
+  const addToCart = useCallback(async (product) => {
     if (!product) return;
     const gst = product.gst || 0;
     const unitPrice = product.priceIncludesGst
       ? +(product.sellingPrice / (1 + gst / 100)).toFixed(2)
       : product.sellingPrice;
+
+    // Fetch available stock for this branch
+    let availableStock;
+    try {
+      const { data } = await stockAPI.getProductStock(product._id, selectedBranch);
+      availableStock = data.available ?? 0;
+    } catch { availableStock = undefined; }
+
+    if (availableStock === 0) {
+      toast.error(`"${product.name}" is out of stock.`);
+      return;
+    }
+
     setCart(prev => {
       const existing = prev.find(i => i.product._id === product._id);
-      if (existing) return prev.map(i => i.product._id === product._id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1, price: unitPrice, gst, lineDiscount: 0 }];
+      if (existing) {
+        if (availableStock !== undefined && existing.quantity >= availableStock) {
+          toast.error(`Only ${availableStock} unit(s) available for "${product.name}".`);
+          return prev;
+        }
+        return prev.map(i => i.product._id === product._id ? { ...i, quantity: i.quantity + 1 } : i);
+      }
+      return [...prev, { product, quantity: 1, price: unitPrice, gst, lineDiscount: 0, availableStock }];
     });
     setProductSearch('');
     setProductOptions([]);
     setTimeout(() => barcodeRef.current?.focus(), 50);
-  }, []);
+  }, [selectedBranch]);
 
   const handleBarcodeKey = async (e) => {
     if (e.key !== 'Enter') return;
@@ -189,7 +208,15 @@ const POSBilling = () => {
   };
 
   const updateQty = (id, delta) =>
-    setCart(prev => prev.map(i => i.product._id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
+    setCart(prev => prev.map(i => {
+      if (i.product._id !== id) return i;
+      const newQty = Math.max(1, i.quantity + delta);
+      if (delta > 0 && i.availableStock !== undefined && newQty > i.availableStock) {
+        toast.error(`Only ${i.availableStock} unit(s) available.`);
+        return i;
+      }
+      return { ...i, quantity: newQty };
+    }));
   const removeItem = (id) => setCart(prev => prev.filter(i => i.product._id !== id));
   const setLineDiscount = (id, val) =>
     setCart(prev => prev.map(i => i.product._id === id ? { ...i, lineDiscount: val } : i));
