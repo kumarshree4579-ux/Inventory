@@ -1,8 +1,8 @@
 const router = require('express').Router();
 const { createPO, approvePO, receiveGoods, getPOs } = require('../controllers/purchaseController');
-const { protect, can } = require('../middleware/auth');
+const { protect, can, branchGuard } = require('../middleware/auth');
 
-router.use(protect);
+router.use(protect, branchGuard);
 router.get('/', can('purchase', 'view'), getPOs);
 router.post('/', can('purchase', 'create'), createPO);
 router.put('/:id/approve', can('purchase', 'approve'), approvePO);

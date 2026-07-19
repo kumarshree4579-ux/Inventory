@@ -9,7 +9,7 @@ exports.createSale = async (req, res, next) => {
     if (!items?.length) return res.status(400).json({ message: 'Cart is empty' });
     if (!paymentMethod) return res.status(400).json({ message: 'Payment method required' });
 
-    const branch = bodyBranch || req.user.branch?._id || req.user.branch;
+    const branch = req.effectiveBranch || req.user.branch?._id || req.user.branch;
     const counter = bodyCounter || req.user.counter?._id || req.user.counter;
     if (!branch) return res.status(400).json({ message: 'Branch required' });
 
@@ -96,7 +96,7 @@ exports.resumeBill = async (req, res, next) => {
 exports.getSales = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, from, to, status, cashier } = req.query;
-    const branch = req.query.branch || req.user.branch?._id || req.user.branch;
+    const branch = req.effectiveBranch;
     const query = {};
     if (branch) query.branch = branch;
     if (status) query.status = status;

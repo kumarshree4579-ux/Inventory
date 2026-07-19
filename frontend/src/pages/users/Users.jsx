@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
   Box, Chip, IconButton, Tooltip, TextField, Dialog, DialogTitle,
-  DialogContent, DialogActions, Button, Grid, MenuItem, Select, FormControl, InputLabel,} from '@mui/material';
+  DialogContent, DialogActions, Button, Grid, MenuItem, Select, FormControl, InputLabel,
+} from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import BlockIcon from '@mui/icons-material/Block';
@@ -12,7 +13,7 @@ import { usersAPI, rolesAPI, branchesAPI } from '../../api/services';
 import toast from 'react-hot-toast';
 
 const UserForm = ({ open, onClose, onSaved, initial }) => {
-  const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm();
+  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm();
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
 
@@ -20,7 +21,10 @@ const UserForm = ({ open, onClose, onSaved, initial }) => {
     if (!open) return;
     rolesAPI.getAll({ limit: 50 }).then(r => setRoles(r.data.data || [])).catch(() => {});
     branchesAPI.getAll({ limit: 50 }).then(r => setBranches(r.data.data || [])).catch(() => {});
-    reset(initial ? { ...initial, role: initial.role?._id, branch: initial.branch?._id } : {});
+    reset(initial
+      ? { ...initial, role: initial.role?._id || '', branch: initial.branch?._id || '' }
+      : { status: 'active' }
+    );
   }, [open]);
 
   const onSubmit = async (data) => {
@@ -36,23 +40,42 @@ const UserForm = ({ open, onClose, onSaved, initial }) => {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogTitle>{initial ? 'Edit User' : 'Add User'}</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
+        <DialogContent sx={{ pt: '12px !important' }}>
           <Grid container spacing={2}>
-            <Grid size={6}><TextField fullWidth label="Full Name" {...register('name', { required: true })} /></Grid>
-            <Grid size={6}><TextField fullWidth label="Username" {...register('username', { required: true })} /></Grid>
-            <Grid size={6}><TextField fullWidth label="Email" type="email" {...register('email', { required: true })} /></Grid>
-            <Grid size={6}><TextField fullWidth label="Mobile" {...register('mobile')} /></Grid>
+            <Grid size={6}>
+              <TextField fullWidth size="small" label="Full Name *" {...register('name', { required: 'Name is required' })}
+                error={!!errors.name} helperText={errors.name?.message} />
+            </Grid>
+            <Grid size={6}>
+              <TextField fullWidth size="small" label="Username *" {...register('username', { required: 'Username is required' })}
+                error={!!errors.username} helperText={errors.username?.message} />
+            </Grid>
+            <Grid size={6}>
+              <TextField fullWidth size="small" label="Email *" type="email" {...register('email', { required: 'Email is required' })}
+                error={!!errors.email} helperText={errors.email?.message} />
+            </Grid>
+            <Grid size={6}>
+              <TextField fullWidth size="small" label="Mobile *" {...register('mobile', { required: 'Mobile is required' })}
+                error={!!errors.mobile} helperText={errors.mobile?.message} />
+            </Grid>
             {!initial && (
-              <Grid size={12}><TextField fullWidth label="Password" type="password" {...register('password', { required: true })} /></Grid>
+              <Grid size={12}>
+                <TextField fullWidth size="small" label="Password *" type="password"
+                  {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Minimum 6 characters' } })}
+                  error={!!errors.password} helperText={errors.password?.message} />
+              </Grid>
             )}
             <Grid size={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Role</InputLabel>
-                <Controller name="role" control={control} defaultValue="" render={({ field }) => (
-                  <Select {...field} label="Role">
-                    {roles.map(r => <MenuItem key={r._id} value={r._id}>{r.name}</MenuItem>)}
-                  </Select>
-                )} />
+              <FormControl fullWidth size="small" error={!!errors.role}>
+                <InputLabel>Role *</InputLabel>
+                <Controller name="role" control={control} defaultValue=""
+                  rules={{ required: 'Role is required' }}
+                  render={({ field }) => (
+                    <Select {...field} label="Role *">
+                      {roles.map(r => <MenuItem key={r._id} value={r._id}>{r.name}</MenuItem>)}
+                    </Select>
+                  )} />
+                {errors.role && <Box component="span" sx={{ fontSize: 11, color: 'error.main', mt: 0.5, ml: 1.5 }}>{errors.role.message}</Box>}
               </FormControl>
             </Grid>
             <Grid size={6}>
@@ -60,12 +83,25 @@ const UserForm = ({ open, onClose, onSaved, initial }) => {
                 <InputLabel>Branch</InputLabel>
                 <Controller name="branch" control={control} defaultValue="" render={({ field }) => (
                   <Select {...field} label="Branch">
-                    <MenuItem value=""><em>None</em></MenuItem>
+                    <MenuItem value=""><em>None (Admin)</em></MenuItem>
                     {branches.map(b => <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>)}
                   </Select>
                 )} />
               </FormControl>
             </Grid>
+            {initial && (
+              <Grid size={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Status</InputLabel>
+                  <Controller name="status" control={control} defaultValue="active" render={({ field }) => (
+                    <Select {...field} label="Status">
+                      <MenuItem value="active">Active</MenuItem>
+                      <MenuItem value="inactive">Inactive</MenuItem>
+                    </Select>
+                  )} />
+                </FormControl>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>

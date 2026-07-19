@@ -6,8 +6,8 @@ const Counter = require('../models/Counter');
 
 exports.getDashboard = async (req, res, next) => {
   try {
-    // Owner/admin can pass ?branch=id, otherwise use user's branch
-    const rawBranch = req.query.branch || req.user.branch?._id || req.user.branch;
+    // Owner/admin can pass ?branch=id via branchGuard, branch users are locked to their own
+    const rawBranch = req.effectiveBranch;
     const branchId = rawBranch ? new mongoose.Types.ObjectId(rawBranch.toString()) : null;
     const branchMatch = branchId ? { branch: branchId } : {};
 

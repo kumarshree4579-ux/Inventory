@@ -5,8 +5,8 @@ const Expense = require('../models/Expense');
 const { Stock } = require('../models/Stock');
 
 const toObjectId = (id) => new mongoose.Types.ObjectId(id?._id || id);
-const getBranchId = (user) => {
-  const id = user.branch?._id || user.branch;
+const getBranchId = (req) => {
+  const id = req.effectiveBranch || req.user.branch?._id || req.user.branch;
   return id ? toObjectId(id) : null;
 };
 
@@ -19,7 +19,7 @@ exports.salesReport = async (req, res, next) => {
   try {
     const { from, to, groupBy = 'day' } = req.query;
     const groupFormat = { day: '%Y-%m-%d', month: '%Y-%m', year: '%Y' }[groupBy] || '%Y-%m-%d';
-    const branchId = getBranchId(req.user);
+    const branchId = getBranchId(req);
     const branchMatch = branchId ? { branch: branchId } : {};
     const data = await Sale.aggregate([
       { $match: { ...branchMatch, status: 'completed', createdAt: dateRange(from, to) } },
@@ -33,7 +33,7 @@ exports.salesReport = async (req, res, next) => {
 exports.purchaseReport = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const branchId = getBranchId(req.user);
+    const branchId = getBranchId(req);
     const branchMatch = branchId ? { branch: branchId } : {};
     const data = await PurchaseOrder.aggregate([
       { $match: { ...branchMatch, createdAt: dateRange(from, to) } },
@@ -46,7 +46,7 @@ exports.purchaseReport = async (req, res, next) => {
 exports.profitReport = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const branchId = getBranchId(req.user);
+    const branchId = getBranchId(req);
     const bm = branchId ? { branch: branchId } : {};
     const [sales, purchases, expenses] = await Promise.all([
       Sale.aggregate([
@@ -72,7 +72,7 @@ exports.profitReport = async (req, res, next) => {
 exports.gstReport = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const branchId = getBranchId(req.user);
+    const branchId = getBranchId(req);
     const branchMatch = branchId ? { branch: branchId } : {};
     const data = await Sale.aggregate([
       { $match: { ...branchMatch, status: 'completed', createdAt: dateRange(from, to) } },
@@ -86,7 +86,7 @@ exports.gstReport = async (req, res, next) => {
 
 exports.inventoryReport = async (req, res, next) => {
   try {
-    const branchId = getBranchId(req.user);
+    const branchId = getBranchId(req);
     const query = branchId ? { branch: branchId } : {};
     const data = await Stock.find(query)
       .populate('product', 'name sku purchasePrice sellingPrice minStock')

@@ -5,7 +5,7 @@ const { generatePONumber } = require('../utils/helpers');
 exports.createPO = async (req, res, next) => {
   try {
     if (!req.body.items?.length) return res.status(400).json({ message: 'Items required' });
-    const branchId = req.user.branch?._id || req.user.branch;
+    const branchId = req.effectiveBranch || req.user.branch?._id || req.user.branch;
     const subtotal = req.body.items.reduce((s, i) => s + i.total, 0);
     const taxAmount = req.body.items.reduce((s, i) => s + (i.total * ((i.gst || 0) / 100)), 0);
     const po = await PurchaseOrder.create({
@@ -77,7 +77,8 @@ exports.receiveGoods = async (req, res, next) => {
 exports.getPOs = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status, supplier } = req.query;
-    const query = { branch: req.user.branch?._id || req.user.branch };
+    const query = {};
+    if (req.effectiveBranch) query.branch = req.effectiveBranch;
     if (status) query.status = status;
     if (supplier) query.supplier = supplier;
     const [data, total] = await Promise.all([

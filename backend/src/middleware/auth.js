@@ -24,4 +24,19 @@ const can = (module, action) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, can };
+// Resolves the effective branch for a request.
+// - Branch users: always locked to their own branch, cannot override via query/body.
+// - Admins (no branch): can pass ?branch=id or body.branch, or get null (all branches).
+const branchGuard = (req, res, next) => {
+  const userBranch = req.user.branch?._id?.toString() || req.user.branch?.toString() || null;
+  if (userBranch) {
+    // Branch-scoped user — ignore any branch param from client
+    req.effectiveBranch = userBranch;
+  } else {
+    // Admin/owner — allow optional branch filter
+    req.effectiveBranch = req.query.branch || req.body.branch || null;
+  }
+  next();
+};
+
+module.exports = { protect, can, branchGuard };

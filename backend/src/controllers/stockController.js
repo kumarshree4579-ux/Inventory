@@ -1,7 +1,7 @@
 const { Stock, StockTransaction } = require('../models/Stock');
 
-// Resolve branch: query param overrides user's branch (for admin/owner viewing other branches)
-const resolveBranch = (req) => req.query.branch || req.body.branch || req.user.branch;
+// Resolve branch via branchGuard middleware
+const resolveBranch = (req) => req.effectiveBranch;
 
 exports.getStock = async (req, res, next) => {
   try {

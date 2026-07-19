@@ -6,7 +6,7 @@ const Customer = require('../models/Customer');
 const Branch = require('../models/Branch');
 const Counter = require('../models/Counter');
 const createCRUD = require('../controllers/crudController');
-const { protect, can } = require('../middleware/auth');
+const { protect, can, branchGuard } = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
 const audit = require('../middleware/audit');
 
@@ -100,13 +100,13 @@ router.use('/suppliers', makeRouter(Supplier, 'purchase', 'purchase'));
 // Counters — filter by branch query param
 (() => {
   const r = require('express').Router();
-  r.use(protect);
+  r.use(protect, branchGuard);
   r.get('/', can('pos', 'view'), async (req, res, next) => {
     try {
-      const { page = 1, limit = 50, branch, status } = req.query;
+      const { page = 1, limit = 50, status } = req.query;
       const query = {};
-      if (branch) query.branch = branch;
-      else if (req.user.branch) query.branch = req.user.branch;
+      if (req.effectiveBranch) query.branch = req.effectiveBranch;
+      else if (req.query.branch) query.branch = req.query.branch; // admin explicit filter
       if (status) query.status = status;
       const [data, total] = await Promise.all([
         Counter.find(query).populate('branch', 'name').populate('cashier', 'name').populate('printer', 'name')
