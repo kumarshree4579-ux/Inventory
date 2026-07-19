@@ -12,7 +12,7 @@ exports.getProductStock = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-
+exports.getStock = async (req, res, next) => {
   try {
     const { page = 1, limit = 50, search, lowStock, outOfStock } = req.query;
     const branch = resolveBranch(req);
