@@ -44,7 +44,7 @@ const Login = () => {
 
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <TextField
               fullWidth label="Username or Email" margin="normal"
               {...register('username', { required: 'Required' })}
@@ -54,14 +54,16 @@ const Login = () => {
               fullWidth label="Password" type={showPwd ? 'text' : 'password'} margin="normal"
               {...register('password', { required: 'Required' })}
               error={!!errors.password} helperText={errors.password?.message}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setShowPwd(p => !p)} edge="end">
-                      {showPwd ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setShowPwd(p => !p)} edge="end" tabIndex={-1}>
+                        {showPwd ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <Button fullWidth variant="contained" type="submit" size="large" sx={{ mt: 2.5, py: 1.25 }} disabled={loading}>

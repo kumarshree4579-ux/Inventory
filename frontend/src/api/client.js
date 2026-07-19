@@ -12,10 +12,17 @@ api.interceptors.response.use(
   (res) => res,
   async (err) => {
     const original = err.config;
-    if (err.response?.status === 401 && !original._retry) {
+    // Skip refresh logic for auth endpoints to avoid redirect loops
+    if (
+      err.response?.status === 401 &&
+      !original._retry &&
+      !original.url?.includes('/auth/login') &&
+      !original.url?.includes('/auth/refresh')
+    ) {
       original._retry = true;
       try {
         const refresh = localStorage.getItem('refreshToken');
+        if (!refresh) throw new Error('No refresh token');
         const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, { refreshToken: refresh });
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
