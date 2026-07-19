@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 
 const connectDB = require('./config/db');
@@ -20,8 +21,9 @@ initSocket(io);
 app.set('io', io);
 
 app.use(helmet());
+app.use(compression());
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200 }));
 

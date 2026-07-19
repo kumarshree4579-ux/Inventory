@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const Product = require('../models/Product');
 const { Stock, StockTransaction } = require('../models/Stock');
 const Category = require('../models/Category');
@@ -227,9 +227,23 @@ router.post('/import', can('inventory', 'create'), uploadExcel.single('file'), a
     const branchId = req.body.branch || req.user.branch?._id?.toString() || req.user.branch?.toString();
     if (!branchId) return res.status(400).json({ message: 'Branch is required for import' });
 
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet || worksheet.rowCount < 2) return res.status(400).json({ message: 'Excel file is empty' });
+
+    // Build rows as plain objects using the header row
+    const headerRow = worksheet.getRow(1).values; // index 1-based, index 0 is undefined
+    const rows = [];
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // skip header
+      const obj = {};
+      row.values.forEach((val, colIdx) => {
+        const header = headerRow[colIdx];
+        if (header) obj[header] = val ?? '';
+      });
+      rows.push(obj);
+    });
 
     if (!rows.length) return res.status(400).json({ message: 'Excel file is empty' });
 

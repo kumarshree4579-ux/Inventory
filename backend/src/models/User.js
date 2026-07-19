@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema({
   deviceInfo: [{ device: String, ip: String, browser: String, lastUsed: Date }],
 }, { timestamps: true });
 
+userSchema.index({ username: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ branch: 1, status: 1 });
+userSchema.index({ role: 1 });
+
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Box, TextField, IconButton, Tooltip, Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography, InputAdornment } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -13,13 +13,22 @@ const ListPage = ({ title, subtitle, columns: extraColumns, api, searchable = tr
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const debounceTimer = useRef(null);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(1);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(val), 350);
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data } = await api.getAll({ page, limit: pageSize, ...(search && { search }) });
+      const { data } = await api.getAll({ page, limit: pageSize, ...(debouncedSearch && { search: debouncedSearch }) });
       setRows(data.data);
       setTotal(data.total);
     } catch {
@@ -29,7 +38,7 @@ const ListPage = ({ title, subtitle, columns: extraColumns, api, searchable = tr
     }
   };
 
-  useEffect(() => { fetchData(); }, [page, pageSize, search]);
+  useEffect(() => { fetchData(); }, [page, pageSize, debouncedSearch]);
 
   const handleDelete = async () => {
     try {
@@ -67,7 +76,7 @@ const ListPage = ({ title, subtitle, columns: extraColumns, api, searchable = tr
           <TextField
             placeholder={`Search ${title.toLowerCase()}...`}
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            onChange={e => handleSearchChange(e.target.value)}
             sx={{ width: 300 }}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }}
           />

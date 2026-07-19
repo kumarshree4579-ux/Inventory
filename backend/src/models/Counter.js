@@ -14,4 +14,7 @@ const counterSchema = new mongoose.Schema({
   closedAt: Date,
 }, { timestamps: true });
 
+counterSchema.index({ branch: 1, status: 1 });
+counterSchema.index({ branch: 1, number: 1 });
+
 module.exports = mongoose.model('Counter', counterSchema);

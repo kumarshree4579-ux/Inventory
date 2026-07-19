@@ -1,11 +1,13 @@
 const { Stock, StockTransaction } = require('../models/Stock');
 
-// Resolve branch via branchGuard middleware
-const resolveBranch = (req) => req.effectiveBranch;
+// Resolve branch via branchGuard middleware, with body fallback
+const resolveBranch = (req) => req.effectiveBranch || req.body.branch || null;
 
 exports.getProductStock = async (req, res, next) => {
   try {
-    const branch = resolveBranch(req);
+    // effectiveBranch set by branchGuard — for branch users it's their own branch,
+    // for admins it comes from ?branch= query param
+    const branch = req.effectiveBranch || req.query.branch;
     if (!branch) return res.status(400).json({ message: 'Branch required' });
     const stock = await Stock.findOne({ product: req.params.productId, branch }).lean();
     res.json({ available: stock?.available ?? 0 });
@@ -15,21 +17,24 @@ exports.getProductStock = async (req, res, next) => {
 exports.getStock = async (req, res, next) => {
   try {
     const { page = 1, limit = 50, search, lowStock, outOfStock } = req.query;
-    const branch = resolveBranch(req);
-    if (!branch) return res.status(400).json({ message: 'Branch required' });
+    const branch = req.effectiveBranch; // null for admin with no branch filter
+    const isAdmin = !req.user.branch;
 
-    const query = { branch };
+    // Branch users must have a branch; admins can query all
+    if (!branch && !isAdmin) return res.status(400).json({ message: 'Branch required' });
+
+    const query = {};
+    if (branch) query.branch = branch;
     if (lowStock === 'true') query.available = { $gt: 0, $lte: 10 };
     if (outOfStock === 'true') query.available = 0;
 
     const productMatch = search ? { name: new RegExp(search, 'i'), status: 'active' } : { status: 'active' };
-
-    // For 1L+ records: paginate on Stock, then populate product with match
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
       Stock.find(query)
         .populate({ path: 'product', match: productMatch, select: 'name sku barcode sellingPrice purchasePrice minStock maxStock unit' })
+        .populate('branch', 'name')
         .sort({ available: 1 })
         .skip(skip)
         .limit(+limit)
@@ -63,7 +68,7 @@ exports.adjustStock = async (req, res, next) => {
     );
     await StockTransaction.create({
       product, branch,
-      type: 'adjustment',
+      type: type === 'inward' ? 'inward' : 'outward',
       quantity: Math.abs(+quantity),
       note,
       performedBy: req.user._id,
@@ -86,7 +91,7 @@ exports.transferStock = async (req, res, next) => {
     await Promise.all([
       Stock.findOneAndUpdate({ product, branch: fromBranch }, { $inc: { available: -quantity } }),
       Stock.findOneAndUpdate({ product, branch: toBranch }, { $inc: { available: +quantity } }, { upsert: true }),
-      StockTransaction.create({ product, branch: fromBranch, type: 'transfer', quantity: -quantity, note, performedBy: req.user._id }),
+      StockTransaction.create({ product, branch: fromBranch, type: 'transfer', quantity: +quantity, note, performedBy: req.user._id }),
       StockTransaction.create({ product, branch: toBranch, type: 'transfer', quantity: +quantity, note, performedBy: req.user._id }),
     ]);
     res.json({ message: 'Stock transferred successfully' });

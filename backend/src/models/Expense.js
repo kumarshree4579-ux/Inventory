@@ -10,4 +10,7 @@ const expenseSchema = new mongoose.Schema({
   receipt: String,
 }, { timestamps: true });
 
+expenseSchema.index({ branch: 1, date: -1 });
+expenseSchema.index({ branch: 1, category: 1 });
+
 module.exports = mongoose.model('Expense', expenseSchema);

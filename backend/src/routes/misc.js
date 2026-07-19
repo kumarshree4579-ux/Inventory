@@ -142,17 +142,18 @@ router.get('/notifications', protect, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/notifications/:id/read', protect, async (req, res, next) => {
-  try {
-    await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
-    res.json({ message: 'Marked as read' });
-  } catch (err) { next(err); }
-});
-
+// read-all MUST be before /:id/read to prevent Express matching 'read-all' as an :id
 router.put('/notifications/read-all', protect, async (req, res, next) => {
   try {
     await Notification.updateMany({ recipient: req.user._id, isRead: false }, { isRead: true });
     res.json({ message: 'All marked as read' });
+  } catch (err) { next(err); }
+});
+
+router.put('/notifications/:id/read', protect, async (req, res, next) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
+    res.json({ message: 'Marked as read' });
   } catch (err) { next(err); }
 });
 

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const speakeasy = require('speakeasy');
 const User = require('../models/User');
 const { generateTokens } = require('../utils/helpers');
+const { invalidateUserCache } = require('../middleware/auth');
 
 exports.login = async (req, res, next) => {
   try {
@@ -92,6 +93,7 @@ exports.refreshToken = async (req, res, next) => {
 exports.logout = async (req, res, next) => {
   try {
     await User.findByIdAndUpdate(req.user._id, { refreshToken: null });
+    invalidateUserCache(req.user._id);
     res.json({ message: 'Logged out successfully' });
   } catch (err) { next(err); }
 };
@@ -100,13 +102,12 @@ exports.changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Both passwords required' });
-
     const user = await User.findById(req.user._id).select('+password');
     if (!(await user.comparePassword(currentPassword)))
       return res.status(400).json({ message: 'Current password is incorrect' });
-
     user.password = newPassword;
     await user.save();
+    invalidateUserCache(req.user._id);
     res.json({ message: 'Password changed successfully' });
   } catch (err) { next(err); }
 };

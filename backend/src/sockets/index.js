@@ -19,7 +19,8 @@ const initSocket = (io) => {
     if (branchId) socket.join(`branch_${branchId}`);
 
     socket.on('counter_update', (data) => {
-      io.to(`branch_${branchId}`).emit('counter_update', data);
+      // Only broadcast to the sender's own branch — prevents cross-branch spoofing
+      if (branchId) io.to(`branch_${branchId}`).emit('counter_update', data);
     });
 
     socket.on('disconnect', () => {

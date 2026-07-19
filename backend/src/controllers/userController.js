@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { invalidateUserCache } = require('../middleware/auth');
 
 exports.getUsers = async (req, res, next) => {
   try {
@@ -56,6 +57,7 @@ exports.toggleStatus = async (req, res, next) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     user.status = user.status === 'active' ? 'inactive' : 'active';
     await user.save();
+    invalidateUserCache(req.params.id);
     res.json({ status: user.status });
   } catch (err) { next(err); }
 };

@@ -20,4 +20,8 @@ const customerSchema = new mongoose.Schema({
   }],
 }, { timestamps: true });
 
+customerSchema.index({ name: 1 });
+customerSchema.index({ branch: 1, status: 1 });
+customerSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Customer', customerSchema);

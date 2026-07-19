@@ -2,9 +2,9 @@ const AuditLog = require('../models/AuditLog');
 
 const audit = (module, action) => async (req, res, next) => {
   const originalJson = res.json.bind(res);
-  res.json = async (data) => {
+  res.json = function (data) {
     if (res.statusCode < 400) {
-      await AuditLog.create({
+      AuditLog.create({
         user: req.user?._id,
         module,
         action,

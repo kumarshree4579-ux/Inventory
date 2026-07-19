@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
 
@@ -9,7 +10,7 @@ const generateTokens = (id) => ({
 const generateBillNumber = (prefix = 'INV') => {
   const date = new Date();
   const datePart = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-  const rand = Math.floor(1000 + Math.random() * 9000);
+  const rand = crypto.randomBytes(3).toString('hex').toUpperCase();
   return `${prefix}-${datePart}-${rand}`;
 };
 

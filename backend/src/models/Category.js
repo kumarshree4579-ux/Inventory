@@ -7,4 +7,8 @@ const categorySchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 
+categorySchema.index({ name: 1 });
+categorySchema.index({ status: 1 });
+categorySchema.index({ parent: 1 });
+
 module.exports = mongoose.model('Category', categorySchema);

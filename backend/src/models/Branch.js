@@ -14,4 +14,7 @@ const branchSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 
+branchSchema.index({ status: 1 });
+branchSchema.index({ name: 1 });
+
 module.exports = mongoose.model('Branch', branchSchema);

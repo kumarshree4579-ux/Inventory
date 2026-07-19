@@ -13,12 +13,20 @@ exports.createSale = async (req, res, next) => {
     const counter = bodyCounter || req.user.counter?._id || req.user.counter;
     if (!branch) return res.status(400).json({ message: 'Branch required' });
 
-    // Validate stock availability
-    for (const item of items) {
-      const stock = await Stock.findOne({ product: item.product, branch });
-      if (!stock || stock.available < item.quantity)
-        return res.status(400).json({ message: `Insufficient stock for product ${item.product}` });
-    }
+    // Atomically decrement stock — prevents overselling under concurrent load
+    const stockUpdates = await Promise.all(
+      items.map(item =>
+        Stock.findOneAndUpdate(
+          { product: item.product, branch, available: { $gte: item.quantity } },
+          { $inc: { available: -item.quantity } },
+          { new: true }
+        )
+      )
+    );
+
+    const failedItem = stockUpdates.findIndex(s => !s);
+    if (failedItem !== -1)
+      return res.status(400).json({ message: `Insufficient stock for product ${items[failedItem].product}` });
 
     const subtotal = items.reduce((sum, i) => sum + i.total, 0);
     const taxAmount = items.reduce((sum, i) => sum + (i.total * ((i.gst || 0) / 100)), 0);
@@ -47,11 +55,7 @@ exports.createSale = async (req, res, next) => {
       originalTotal: originalTotal || total,
     });
 
-    await Promise.all(items.map(item => Promise.all([
-      Stock.findOneAndUpdate(
-        { product: item.product, branch },
-        { $inc: { available: -item.quantity } }
-      ),
+    await Promise.all(items.map(item =>
       StockTransaction.create({
         product: item.product,
         branch,
@@ -60,8 +64,8 @@ exports.createSale = async (req, res, next) => {
         reference: 'sale',
         referenceId: created._id,
         performedBy: req.user._id,
-      }),
-    ])));
+      })
+    ));
 
     // Populate product references so frontend can render names in receipt
     const sale = await Sale.findById(created._id)
@@ -109,6 +113,7 @@ exports.getSales = async (req, res, next) => {
       Sale.find(query)
         .populate('customer', 'name phone')
         .populate('cashier', 'name')
+        .populate('branch', 'name')
         .populate('items.product', 'name sku')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit).limit(+limit).lean(),

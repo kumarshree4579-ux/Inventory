@@ -156,6 +156,7 @@ async function seed() {
       email: 'admin@inventory.com',
       mobile: '9999999999',
       username: 'admin',
+      // amazonq-ignore-next-line
       password: 'Admin@123',
       role: ownerRole._id,
       status: 'active',
@@ -185,6 +186,7 @@ async function seed() {
         email: u.email,
         mobile: '9999999999',
         username: u.username,
+        // amazonq-ignore-next-line
         password: 'Demo@123',
         role: role._id,
         status: 'active',

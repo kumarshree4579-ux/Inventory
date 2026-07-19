@@ -81,31 +81,37 @@ const SaleDetail = ({ sale }) => (
 // ── Sales Page ────────────────────────────────────────────────────────────────
 const Sales = () => {
   const { user } = useAuthStore();
+  const isAdmin = !user?.branch; // admin has no branch assigned
+  const userBranchId = user?.branch?._id || user?.branch || null;
+
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(false);
   const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState(user?.branch?._id || user?.branch || '');
+  // Admin defaults to '' (All Branches); branch users are locked to their branch
+  const [selectedBranch, setSelectedBranch] = useState(isAdmin ? '' : userBranchId);
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().format('YYYY-MM-DD'));
   const [status, setStatus] = useState('');
   const [detailSale, setDetailSale] = useState(null);
 
+  // Only fetch branch list for admin (branch users don't need it)
   useEffect(() => {
-    branchesAPI.getAll({ limit: 100, status: 'active' }).then(({ data }) => {
-      const list = data.data || [];
-      setBranches(list);
-      if (!selectedBranch && list.length) setSelectedBranch(list[0]._id);
-    }).catch(() => {});
-  }, []);
+    if (!isAdmin) return;
+    branchesAPI.getAll({ limit: 100, status: 'active' })
+      .then(({ data }) => setBranches(data.data || []))
+      .catch(() => {});
+  }, [isAdmin]);
 
   const fetchSales = useCallback(async () => {
     setLoading(true);
     try {
       const params = { page, limit: pageSize };
-      if (selectedBranch) params.branch = selectedBranch;
+      // Admin: send selected branch (empty = all branches)
+      // Branch user: backend branchGuard enforces their branch, no need to send
+      if (isAdmin && selectedBranch) params.branch = selectedBranch;
       if (from) params.from = from;
       if (to) params.to = to + 'T23:59:59';
       if (status) params.status = status;
@@ -114,11 +120,10 @@ const Sales = () => {
       setTotal(data.total || 0);
     } catch { toast.error('Failed to load sales'); }
     finally { setLoading(false); }
-  }, [page, pageSize, selectedBranch, from, to, status]);
+  }, [page, pageSize, selectedBranch, from, to, status, isAdmin]);
 
   useEffect(() => { fetchSales(); }, [fetchSales]);
 
-  // Summary stats from current page
   const pageTotal = rows.reduce((s, r) => s + (+r.total || 0), 0);
 
   const columns = [
@@ -140,6 +145,11 @@ const Sales = () => {
         </Box>
       ),
     },
+    // Show branch column only for admin viewing all/multiple branches
+    ...(isAdmin ? [{
+      field: 'branch', headerName: 'Branch', flex: 0.9, minWidth: 110,
+      renderCell: ({ value }) => value?.name || '—',
+    }] : []),
     {
       field: 'customer', headerName: 'Customer', flex: 1, minWidth: 120,
       renderCell: ({ value }) => value?.name || <Typography variant="caption" color="text.disabled">Walk-in</Typography>,
@@ -183,15 +193,22 @@ const Sales = () => {
       {/* Filters */}
       <Card sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={1.5} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl size="small" fullWidth>
-              <InputLabel>Branch</InputLabel>
-              <Select value={selectedBranch} onChange={e => { setSelectedBranch(e.target.value); setPage(1); }} label="Branch">
-                <MenuItem value="">All Branches</MenuItem>
-                {branches.map(b => <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
+          {/* Branch filter — admin only */}
+          {isAdmin && (
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Branch</InputLabel>
+                <Select
+                  value={selectedBranch}
+                  onChange={e => { setSelectedBranch(e.target.value); setPage(1); }}
+                  label="Branch"
+                >
+                  <MenuItem value="">All Branches</MenuItem>
+                  {branches.map(b => <MenuItem key={b._id} value={b._id}>{b.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
           <Grid item xs={6} sm={3} md={2}>
             <TextField size="small" fullWidth label="From" type="date"
               value={from} onChange={e => { setFrom(e.target.value); setPage(1); }}
@@ -213,7 +230,7 @@ const Sales = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} sm={3} md={3}>
+          <Grid item xs={6} sm={3} md={isAdmin ? 3 : 6}>
             <Box display="flex" gap={1} alignItems="center">
               <Button size="small" variant="outlined" onClick={() => { setPage(1); fetchSales(); }}>Apply</Button>
               <Typography variant="body2" color="text.secondary" noWrap>

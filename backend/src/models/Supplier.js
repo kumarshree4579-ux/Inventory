@@ -14,4 +14,8 @@ const supplierSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 
+supplierSchema.index({ name: 1 });
+supplierSchema.index({ status: 1 });
+supplierSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Supplier', supplierSchema);

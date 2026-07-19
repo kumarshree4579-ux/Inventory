@@ -27,4 +27,9 @@ const purchaseOrderSchema = new mongoose.Schema({
   invoiceDate: Date,
 }, { timestamps: true });
 
+purchaseOrderSchema.index({ branch: 1, createdAt: -1 });
+purchaseOrderSchema.index({ branch: 1, status: 1 });
+purchaseOrderSchema.index({ supplier: 1, createdAt: -1 });
+purchaseOrderSchema.index({ poNumber: 1 });
+
 module.exports = mongoose.model('PurchaseOrder', purchaseOrderSchema);

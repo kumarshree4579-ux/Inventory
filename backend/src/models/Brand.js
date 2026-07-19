@@ -6,4 +6,6 @@ const brandSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 
+brandSchema.index({ status: 1 });
+
 module.exports = mongoose.model('Brand', brandSchema);

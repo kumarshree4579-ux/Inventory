@@ -1,8 +1,8 @@
 import { DataGrid } from '@mui/x-data-grid';
 import { Box } from '@mui/material';
 
-const DataTable = ({ rows, columns, loading, total, page, pageSize, onPageChange, onPageSizeChange, ...props }) => (
-  <Box sx={{ width: '100%', bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+const DataTable = ({ rows, columns, loading, total, page, pageSize, onPageChange, onPageSizeChange, height = 520, ...props }) => (
+  <Box sx={{ width: '100%', height, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
     <DataGrid
       rows={rows}
       columns={columns}
@@ -16,10 +16,10 @@ const DataTable = ({ rows, columns, loading, total, page, pageSize, onPageChange
       }}
       pageSizeOptions={[10, 20, 50]}
       disableRowSelectionOnClick
-      autoHeight
       getRowId={(row) => row._id}
       sx={{
         border: 'none',
+        height: '100%',
         '& .MuiDataGrid-columnHeaders': { backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
         '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569' },
         '& .MuiDataGrid-row:hover': { bgcolor: '#f8fafc' },

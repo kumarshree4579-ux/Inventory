@@ -29,4 +29,10 @@ const saleSchema = new mongoose.Schema({
   originalTotal: { type: Number },
 }, { timestamps: true });
 
+saleSchema.index({ branch: 1, createdAt: -1 });
+saleSchema.index({ branch: 1, status: 1, createdAt: -1 });
+saleSchema.index({ cashier: 1, createdAt: -1 });
+saleSchema.index({ customer: 1 });
+saleSchema.index({ billNumber: 1 });
+
 module.exports = mongoose.model('Sale', saleSchema);

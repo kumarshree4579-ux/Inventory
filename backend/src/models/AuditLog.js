@@ -13,4 +13,8 @@ const auditLogSchema = new mongoose.Schema({
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
 }, { timestamps: true });
 
+auditLogSchema.index({ branch: 1, createdAt: -1 });
+auditLogSchema.index({ module: 1, action: 1 });
+auditLogSchema.index({ user: 1, createdAt: -1 });
+
 module.exports = mongoose.model('AuditLog', auditLogSchema);

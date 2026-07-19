@@ -29,11 +29,15 @@ export const useSocket = (eventHandlers = {}) => {
     const socket = getSocket();
     if (!socket) return;
 
-    const entries = Object.entries(handlersRef.current);
-    entries.forEach(([event, handler]) => socket.on(event, handler));
+    // Use stable wrapper functions that always call the latest handler via ref
+    const wrappers = {};
+    Object.keys(handlersRef.current).forEach((event) => {
+      wrappers[event] = (...args) => handlersRef.current[event]?.(...args);
+      socket.on(event, wrappers[event]);
+    });
 
     return () => {
-      entries.forEach(([event, handler]) => socket.off(event, handler));
+      Object.entries(wrappers).forEach(([event, fn]) => socket.off(event, fn));
     };
   }, []);
 };

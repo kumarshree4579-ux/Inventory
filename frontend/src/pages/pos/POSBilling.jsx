@@ -11,7 +11,6 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import SearchIcon from '@mui/icons-material/Search';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
@@ -308,14 +307,9 @@ const POSBilling = () => {
     }, 400);
   };
 
-  const handleCustomerSave = async () => {
-    // kept for potential future use — auto-called during checkout
-  };
-
   useEffect(() => {
     const isMac = navigator.platform.toUpperCase().includes('MAC');
     const handler = (e) => {
-      // F-keys (Windows/Linux) or Cmd+1/2/3 (Mac)
       const macScan   = isMac && e.metaKey && e.key === '1';
       const macSearch = isMac && e.metaKey && e.key === '2';
       const macPay    = isMac && e.metaKey && e.key === '3';
