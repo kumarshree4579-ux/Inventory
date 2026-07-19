@@ -3,7 +3,16 @@ const { Stock, StockTransaction } = require('../models/Stock');
 // Resolve branch via branchGuard middleware
 const resolveBranch = (req) => req.effectiveBranch;
 
-exports.getStock = async (req, res, next) => {
+exports.getProductStock = async (req, res, next) => {
+  try {
+    const branch = resolveBranch(req);
+    if (!branch) return res.status(400).json({ message: 'Branch required' });
+    const stock = await Stock.findOne({ product: req.params.productId, branch }).lean();
+    res.json({ available: stock?.available ?? 0 });
+  } catch (err) { next(err); }
+};
+
+
   try {
     const { page = 1, limit = 50, search, lowStock, outOfStock } = req.query;
     const branch = resolveBranch(req);
